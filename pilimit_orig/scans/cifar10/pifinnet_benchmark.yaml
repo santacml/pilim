@@ -1,0 +1,75 @@
+description: sweep FinPiNet on CIFAR-10
+
+target:
+  service: amlk8s
+  name: ms-shared
+
+environment:
+  image: nvidia/pytorch:20.03-py3
+  registry: nvcr.io
+code:
+  # local directory of the code. this will be uploaded to the server.
+  # $CONFIG_DIR is expanded to the directory of this config file
+  local_dir: $CONFIG_DIR/../../
+storage:
+  output:
+    storage_account_name: inflimitmsr
+    container_name: teamdrive
+    is_output: True
+# list of jobs to run, we run 2 jobs in this example
+search:
+  # name must be unique across the jobs
+  job_template:
+    name: pinet-sweep
+    sku: G1-V100
+    command:
+    - bash scans/cifar10/pi_benchmark_driver.sh
+      --lr {lr}
+      --gclip {gclip}
+      --wd {wd}
+      --bias_alpha {bias_alpha}
+      --milestones {milestones}
+      --first_layer_lr_mult {first_layer_lr_mult}
+      --last_layer_lr_mult {last_layer_lr_mult}
+      --first_layer_alpha {first_layer_alpha}
+      --last_layer_alpha {last_layer_alpha}
+      --batch_size {batch_size}
+      --seed {seed}
+      --savedir $$PT_OUTPUT_DIR
+  type: grid
+  # max_trials: 1
+  max_trials: 50
+  params:
+    - name: gclip
+      spec: discrete
+      values: "[3.20]"
+    - name: lr
+      spec: discrete
+      values: "[ 0.5]"
+    - name: wd
+      spec: discrete
+      values: "[0.00016]"
+    - name: bias_alpha
+      spec: discrete
+      values: "[4.000]"
+    - name: milestones
+      spec: discrete
+      values: [35]
+    - name: first_layer_lr_mult
+      spec: discrete
+      values: "[0.20]"
+    - name: last_layer_lr_mult
+      spec: discrete
+      values: "[8.0]"
+    - name: first_layer_alpha
+      spec: discrete
+      values: "[0.125]"
+    - name: last_layer_alpha
+      spec: discrete
+      values: "[0.500]"
+    - name: batch_size
+      spec: discrete
+      values: [32]
+    - name: seed
+      spec: discrete
+      values: "np.arange(50)"

@@ -1,0 +1,76 @@
+description: PiLimit Kernels Cifar10
+
+target:
+  service: amlk8s
+  name: ms-shared
+
+environment:
+  image: pytorch/pytorch:1.9.0-cuda10.2-cudnn7-devel
+  setup:
+    - pip install tensorboard
+    - pip install matplotlib
+    - pip install ipywidgets
+    - pip install seaborn
+    - pip install tqdm
+    - pip install matplotlib
+    - pip install ipywidgets
+    - pip install opt_einsum
+code:
+  # local directory of the code. this will be uploaded to the server.
+  # $CONFIG_DIR is expanded to the directory of this config file
+  local_dir: $CONFIG_DIR/../../
+storage:
+  output:
+    storage_account_name: inflimitmsr
+    container_name: teamdrive
+    is_output: True
+# list of jobs to run, we run 2 jobs in this example
+search:
+  # name must be unique across the jobs
+  job_template:
+    name: inf-kernels-cifar10
+    sku: G1
+    command:
+    # - python -m cifar10.cifar10test --cuda --kernel-reg={reg} --test-kernel --load-model-path="/mnt/output/projects/pilimit/amlt-results/7368792799.92266-239e58c2-2e2b-40e6-a973-5fe22aa893c6/{r}/checkpoints/epoch{epoch}.th" --save-dir $$PT_OUTPUT_DIR --batch-size 32 --test-batch-size 32
+    #infnet
+    # - python -m cifar10.cifar10test --cuda --kernel-reg={reg} --test-kernel --load-model-path="/mnt/output/projects/pilimit/amlt-results/7368187087.06697-d503334f-7dc6-4b35-92d8-0f914b098ae7/2/checkpoints/epoch{epoch}.th" --save-dir $$PT_OUTPUT_DIR --batch-size 32 --test-batch-size 32
+    
+    - python -m cifar10.cifar10test --cuda --kernel-reg={reg} --test-kernel --load-model-path="/mnt/output/projects/pilimit/amlt-results/{folder}/checkpoints/epoch{epoch}.th" --save-dir $$PT_OUTPUT_DIR --batch-size 32 --test-batch-size 32
+  type: grid
+  # max_trials: 200
+  # max_trials: 4
+  # max_trials: 702
+  # max_trials: 500
+  max_trials: 10
+  params:
+    # - name: r
+    #   spec: discrete
+    #   values: "[400]"
+    - name: reg
+      spec: discrete
+      values: "[10**(-n) for n in range(7,2,-1)]"
+    - name: epoch
+      spec: discrete
+      # values: "range(0, 51, 1)"
+      values: "[0]"
+    - name: folder
+      spec: discrete
+      # pinet and munet epoch 0
+      values: "['7367558769.83894-f1ece810-a680-4da4-b253-adc138b4783e/2',
+                '7367558822.88152-23dd1c42-6980-4f7f-b084-919859a3947c/2']"
+      #pinet and munet
+      # values: "['7368450254.88399-a310f200-df92-4416-9ab4-0d5760911135/2',
+      #           '7368690537.25205-af6b1843-8f1d-41a7-9015-e13fb6df3b1a/2']"
+      # best infnet hparams kernels per width
+    # - name: folder
+    #   spec: discrete
+    #   values: "['7367737449.91562-19e03555-c7b9-4e89-9c73-3b157f126448/32768',
+    #             # '7367737449.91041-fee83a1d-15e4-421c-b633-890eabe7acf5/128', 
+    #             # '7367737449.90773-d2e2b500-76ca-44fa-8abb-3e3ecd8b4c31/256',
+    #             # '7367737449.91431-849f653d-790d-45ae-a4e8-8ee2366e7c66/512',
+    #             # '7367737449.91302-39bcbcbd-e3b2-48c5-ac61-09ba1db2bf85/1024',
+    #             # '7367737449.90909-886bad0e-6707-4e3b-8586-d9adff2b77e1/2048',
+    #             # '7367737449.91756-521c747f-1631-4658-a8dd-3432f86e6374/4096',
+    #             # '7367737449.91171-c713293b-2164-4089-80eb-53f31782e7ad/8192',
+    #             # '7367737449.90642-04b1ccee-7882-4d7f-8d6e-c4f235da2d80/16384']"
+                

@@ -1,0 +1,97 @@
+description: PiLimit Kernels Cifar10
+
+target:
+  service: amlk8s
+  # name: ms-shared
+  name: itplabrr1cl1
+
+environment:
+  image: pytorch/pytorch:1.9.0-cuda10.2-cudnn7-devel
+  setup:
+    - pip install tensorboard
+    - pip install matplotlib
+    - pip install ipywidgets
+    - pip install seaborn
+    - pip install tqdm
+    - pip install matplotlib
+    - pip install ipywidgets
+    - pip install opt_einsum
+code:
+  # local directory of the code. this will be uploaded to the server.
+  # $CONFIG_DIR is expanded to the directory of this config file
+  local_dir: $CONFIG_DIR/../../
+storage:
+  output:
+    storage_account_name: inflimitmsr
+    container_name: teamdrive
+    is_output: True
+# list of jobs to run, we run 2 jobs in this example
+search:
+  # name must be unique across the jobs
+  job_template:
+    name: inf-kernels-cifar10
+    sku: G1
+    command:
+    # - python -m cifar10.cifar10test --cuda --kernel-reg={reg} --test-kernel --load-model-path="/mnt/output/projects/pilimit/amlt-results/7368792799.92266-239e58c2-2e2b-40e6-a973-5fe22aa893c6/{r}/checkpoints/epoch{epoch}.th" --save-dir $$PT_OUTPUT_DIR --batch-size 32 --test-batch-size 32
+    # - python -m cifar10.cifar10test --cuda --kernel-reg={reg} --test-kernel --load-model-path="/mnt/output/imagenet250transfer_maxgb_randomcls/16/checkpoints/epoch{args.epochs}.th" --save-dir $$PT_OUTPUT_DIR --batch-size 32 --test-batch-size 32
+
+    # best run - need to recreate
+# - python transfer_imagenet.py --cuda --lr=0.01 --gclip=0  --epochs=40 --save-model-path='/mnt/my_output/imagenet250tr$    --transfer-milestones=26,27,28,29,30,31,32,33,34,35 --human --transfer --wd=1e-4
+#     --bias-alpha=0.5  --first-layer-lr-mult=1 --last-layer-lr-mult=1 --gclip-per-param
+#     --batch-size=8
+
+
+
+    - python -m imagenet.transfer_imagenet --save-model --save-dir=$$PT_OUTPUT_DIR --transfer --transfer-milestones=26,28,30  --cuda --r {rank} --lr={lr} --batch-size={batch} --test-batch-size={batch} --gclip={gclip}  --epochs={epochs} --human --wd={wd} --bias-alpha={bias_alpha} --first-layer-lr-mult={flm} --last-layer-lr-mult={llm} --gclip-per-param 
+  # type: random
+  type: grid
+  # max_trials: 300
+  max_trials: 1
+  params:
+    - name: epochs
+      spec: discrete
+      values: [30]
+    - name: rank
+      spec: discrete
+      values: [200]
+    - name: lr
+      spec: discrete
+      # values: [.1, .05, .01, .005, .001]
+      values: [.01]
+    - name: batch
+      spec: discrete
+      values: [16]
+    - name: flm
+      spec: discrete
+      # values: ".5 * 1.5**np.arange(0, 3, .25)"
+      values: [1]
+    - name: llm
+      spec: discrete
+      # values: "2**np.arange(1, 3.5, .25)"
+      values: [1]
+    - name: wd
+      spec: discrete
+      # values: [0, 1e-2, 1e-3, 1e-4, 1e-5]
+      values: [1e-4]
+    - name: gclip
+      spec: discrete
+      # values: [0.2, 0.4, 0.8, 0.9, 0]
+      # values: [0.4]
+      values: [0]
+    - name: bias_alpha
+      spec: discrete
+      values: [0.5]
+# 
+
+
+
+    # - name: r
+    #   spec: discrete
+    #   values: "[400]"
+    # - name: reg
+    #   spec: discrete
+    #   values: "[10**(-n) for n in range(7,3,-1)]"
+    # - name: epoch
+    #   spec: discrete
+    #   values: "range(21, 31)"
+      # values: "[0]"

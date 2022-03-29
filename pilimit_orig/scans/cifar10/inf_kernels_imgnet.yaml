@@ -1,0 +1,49 @@
+description: PiLimit Kernels Cifar10
+
+target:
+  service: amlk8s
+  name: ms-shared
+
+environment:
+  image: pytorch/pytorch:1.9.0-cuda10.2-cudnn7-devel
+  setup:
+    - pip install tensorboard
+    - pip install matplotlib
+    - pip install ipywidgets
+    - pip install seaborn
+    - pip install tqdm
+    - pip install matplotlib
+    - pip install ipywidgets
+    - pip install opt_einsum
+code:
+  # local directory of the code. this will be uploaded to the server.
+  # $CONFIG_DIR is expanded to the directory of this config file
+  local_dir: $CONFIG_DIR/../../
+storage:
+  output:
+    storage_account_name: inflimitmsr
+    container_name: teamdrive
+    is_output: True
+# list of jobs to run, we run 2 jobs in this example
+search:
+  # name must be unique across the jobs
+  job_template:
+    name: inf-kernels-cifar10
+    sku: G1
+    command:
+    # - python -m cifar10.cifar10test --cuda --kernel-reg={reg} --test-kernel --load-model-path="/mnt/output/projects/pilimit/amlt-results/7368792799.92266-239e58c2-2e2b-40e6-a973-5fe22aa893c6/{r}/checkpoints/epoch{epoch}.th" --save-dir $$PT_OUTPUT_DIR --batch-size 32 --test-batch-size 32
+    - python -m cifar10.cifar10test --cuda --kernel-reg={reg} --test-kernel --load-model-path="/mnt/output/imagenet250transfer_maxgb_randomcls/16/checkpoints/epoch{args.epochs}.th" --save-dir $$PT_OUTPUT_DIR --batch-size 32 --test-batch-size 32
+  type: grid
+  # max_trials: 200
+  max_trials: 40
+  params:
+    - name: r
+      spec: discrete
+      values: "[400]"
+    - name: reg
+      spec: discrete
+      values: "[10**(-n) for n in range(7,3,-1)]"
+    - name: epoch
+      spec: discrete
+      values: "range(21, 31)"
+      # values: "[0]"

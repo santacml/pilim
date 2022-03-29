@@ -1,0 +1,116 @@
+description: PiLimit Kernels Cifar10
+
+target:
+  service: amlk8s
+  name: ms-shared
+
+environment:
+  image: pytorch/pytorch:1.9.0-cuda10.2-cudnn7-devel
+  setup:
+    - pip install tensorboard
+    - pip install matplotlib
+    - pip install ipywidgets
+    - pip install seaborn
+    - pip install tqdm
+    - pip install matplotlib
+    - pip install ipywidgets
+    - pip install opt_einsum
+code:
+  # local directory of the code. this will be uploaded to the server.
+  # $CONFIG_DIR is expanded to the directory of this config file
+  local_dir: $CONFIG_DIR/../../
+storage:
+  output:
+    storage_account_name: inflimitmsr
+    container_name: teamdrive
+    is_output: True
+# list of jobs to run, we run 2 jobs in this example
+search:
+  # name must be unique across the jobs
+  job_template:
+    name: inf-kernels-cifar10
+    sku: G1
+    command:
+    - python -m imagenet.transfer_imagenet  --save-dir=$$PT_OUTPUT_DIR --save-model --cuda --width={width} --r {rank} --lr={lr} --batch-size={batch} --gclip={gclip}  --epochs={epochs} --human --wd={wd} --bias-alpha={bias_alpha}  --first-layer-lr-mult={flm} --last-layer-lr-mult={llm} --gclip-per-param 
+  type: random
+  max_trials: 1
+  params:
+    - name: epochs
+      spec: discrete
+      values: [40]
+      # values: [150]
+    - name: width
+      spec: discrete
+      values: [2048]
+      # values: [4096, 8192, 16384]
+      # values: [16384]
+    - name: rank
+      spec: discrete
+      # values: [200]
+      values: [400]
+    - name: lr
+      spec: discrete
+      # values: [.1, .05, .01, .005, .001]
+      # values: [0.1]
+      # values: [0.02]
+      # values: [0.04] # 2/7/22
+      # values: [0.028284] # 2/7/22
+      values: [0.05] # 2/11/22 r 400
+    - name: batch
+      spec: discrete
+      values: [16]
+    - name: flm
+      spec: discrete
+      # values: ".5 * 1.5**np.arange(0, 3, .25)"
+      # values: [1.016552]
+      # values: [1.377838]
+      # values: [0.553341]
+      # values: [1.524828]
+      # values: [ 0.918559]  # 2/7/22
+      # values: [   1.524828]  # 2/7/22
+      values: [ 0.612372]  # 2/11/22 r 400
+    - name: llm
+      spec: discrete
+      # values: "2**np.arange(1, 3.5, .25)"
+      # values: [5.656854]
+      # values: [3.363586]
+      # values: [6.727171]
+      # values: [2.0]
+      # values: [4.0] # 2/7/22
+      # values: [2.378414] # 2/7/22
+      values: [1.0] # 2/11/22 r 400
+    - name: wd
+      spec: discrete
+      # values: [0, 1e-2, 1e-3, 1e-4, 1e-5]
+      # values: [0.0005]
+      # values: [0.0005]
+      # values: [0.000177] # 2/7/22
+      values: [ 0.0005] # 2/11/22 r 400
+    - name: gclip
+      spec: discrete
+      # values: [0.2, 0.4, 0.8, 0.9, 0]
+      # values: [0.2]
+      # values: [0.8]
+      # values: [0.4] # 2/7/22
+      values: [0.8] # 2/11/22 r 400
+    - name: bias_alpha
+      spec: discrete
+      # values: [4.0]
+      # values: [1.0]
+      # values: [.25] # 2/7/22
+      # values: [  0.353553] # 2/7/22
+      values: [  0.707107] # 2/11/22 r 400
+# 
+
+
+
+    # - name: r
+    #   spec: discrete
+    #   values: "[400]"
+    # - name: reg
+    #   spec: discrete
+    #   values: "[10**(-n) for n in range(7,3,-1)]"
+    # - name: epoch
+    #   spec: discrete
+    #   values: "range(21, 31)"
+      # values: "[0]"

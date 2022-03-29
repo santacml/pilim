@@ -1,0 +1,72 @@
+description: PiLimit Kernels Cifar10
+
+target:
+  service: amlk8s
+  # name: ms-shared
+  name: itpeusp100cl
+
+environment:
+  image: pytorch/pytorch:1.9.0-cuda10.2-cudnn7-devel
+  setup:
+    - pip install tensorboard
+    - pip install matplotlib
+    - pip install ipywidgets
+    - pip install seaborn
+    - pip install tqdm
+    - pip install matplotlib
+    - pip install ipywidgets
+    - pip install opt_einsum
+code:
+  # local directory of the code. this will be uploaded to the server.
+  # $CONFIG_DIR is expanded to the directory of this config file
+  local_dir: $CONFIG_DIR/../../
+storage:
+  output:
+    storage_account_name: inflimitmsr
+    container_name: teamdrive
+    is_output: True
+# list of jobs to run, we run 2 jobs in this example
+search:
+  # name must be unique across the jobs
+  job_template:
+    name: inf-kernels-cifar10
+    sku: G1
+    command:
+    # - python -m cifar10.cifar10test --cuda --kernel-reg={reg} --test-kernel --load-model-path="/mnt/output/projects/pilimit/amlt-results/7368792799.92266-239e58c2-2e2b-40e6-a973-5fe22aa893c6/{r}/checkpoints/epoch{epoch}.th" --save-dir $$PT_OUTPUT_DIR --batch-size 32 --test-batch-size 32
+    #infnet
+    # - python -m cifar10.cifar10test --cuda --kernel-reg={reg} --test-kernel --load-model-path="/mnt/output/projects/pilimit/amlt-results/7368187087.06697-d503334f-7dc6-4b35-92d8-0f914b098ae7/2/checkpoints/epoch{epoch}.th" --save-dir $$PT_OUTPUT_DIR --batch-size 32 --test-batch-size 32
+    
+    - python -m cifar10.cifar10test --cuda --kernel-reg={reg} --test-kernel --load-model-path="/mnt/output/projects/pilimit/amlt-results/{folder}/checkpoints/epoch{epoch}.th" --save-dir $$PT_OUTPUT_DIR --batch-size 32 --test-batch-size 32
+  type: grid
+  # max_trials: 200
+  # max_trials: 4
+  # max_trials: 702
+  # max_trials: 500
+  # max_trials: 160
+  max_trials: 320
+  # max_trials: 600
+  params:
+    # - name: r
+    #   spec: discrete
+    #   values: "[400]"
+    - name: reg
+      spec: discrete
+      # values: "[10**(-n) for n in range(7,2,-1)]"
+      values: "[10**(-n) for n in range(6,2,-1)]"   # 4 values
+    - name: epoch
+      spec: discrete
+      # values: "range(0, 31, 1)"
+      values: "range(0, 40, 1)"
+      # values: "[0]"
+    - name: folder
+      spec: discrete
+      # pinet and munet epoch 0
+      # values: "['7365079190.09046-46ff9cb3-4136-485e-ba85-bf6ba2c229e7']"
+      # values: "['7364109225.84346-84d45331-274d-4221-bf14-b3d971e7402d']"
+      # values: "['7363609770.32926-3026f42f-5d03-456c-bc54-a8b984f3babd']"
+      # values: ['7356174535.90577-68e06093-d4fe-4bca-968f-f397299af97f']   # hardy-squirrel
+      # values: ['7356074313.57619-85388e67-41fe-4821-b9c7-b6df20276f02']   # simple-goshawk
+      values: ['7355747238.90573-0f7becda-fa18-4974-879e-90f025f07cb9',
+              '7355747096.66129-d868d876-e883-4b7f-88de-e3c1f521af29',
+              ] # eminent-mite and busy-macaque
+      

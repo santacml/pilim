@@ -1,0 +1,15 @@
+*.pyc
+__pycache__
+dataset/
+backup/
+.ipynb_checkpoints/
+*.log
+pt
+*.pkl
+*.pickle
+*results*
+.vscode
+.ptignore
+saved_models/**
+*.th
+*.df

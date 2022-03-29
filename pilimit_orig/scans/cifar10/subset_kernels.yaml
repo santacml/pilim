@@ -1,0 +1,83 @@
+description: PiLimit Kernels Cifar10
+
+target:
+  service: amlk8s
+  name: ms-shared
+
+environment:
+  image: pytorch/pytorch:1.9.0-cuda10.2-cudnn7-devel
+  setup:
+    - pip install tensorboard
+    - pip install matplotlib
+    - pip install ipywidgets
+    - pip install seaborn
+    - pip install tqdm
+    - pip install matplotlib
+    - pip install ipywidgets
+    - pip install opt_einsum
+code:
+  # local directory of the code. this will be uploaded to the server.
+  # $CONFIG_DIR is expanded to the directory of this config file
+  local_dir: $CONFIG_DIR/../../
+storage:
+  output:
+    storage_account_name: inflimitmsr
+    container_name: teamdrive
+    is_output: True
+# list of jobs to run, we run 2 jobs in this example
+search:
+  # name must be unique across the jobs
+  job_template:
+    name: inf-kernels-cifar10
+    sku: G1
+    command:
+    # from the old kernel tests
+    # - python -m cifar10.cifar10test --cuda --kernel-reg={reg} --width {width} --train-subset-size 1000 --test-subset-size 1000 --test-kernel --load-model-path="/mnt/output/kerneltest_full/{width}/checkpoints/epoch{epoch}.th" --save-dir $$PT_OUTPUT_DIR --batch-size 32 --test-batch-size 32
+    
+    # from an inf run
+    # - python -m cifar10.cifar10test --cuda --kernel-reg={reg} --width {width} --train-subset-size {subsetsize} --test-subset-size {subsetsize} --test-kernel --load-model-path="/mnt/output/projects/pilimit/amlt-results/7368792799.92266-239e58c2-2e2b-40e6-a973-5fe22aa893c6/400/checkpoints/epoch{epoch}.th" --save-dir $$PT_OUTPUT_DIR --batch-size 32 --test-batch-size 32
+
+
+
+    # from an inf run
+    # - python -m cifar10.cifar10test --cuda --kernel-reg={reg} --train-subset-size {subsetsize} --test-subset-size {subsetsize} --test-kernel --load-model-path="/mnt/output/projects/pilimit/amlt-results/{folder}/2/checkpoints/epoch{epoch}.th" --save-dir $$PT_OUTPUT_DIR --batch-size 32 --test-batch-size 32
+
+
+    #test bash file
+    - bash scans/cifar10/subset_kernel_driver.sh --savedir $$PT_OUTPUT_DIR --seed {seed}
+
+  type: grid
+  max_trials: 20
+  # max_trials: 624
+  # max_trials: 102
+  params:
+    - name: seed
+      spec: discrete
+      values: "range(0, 20)"
+    # - name: r
+    #   spec: discrete
+    #   values: "[400]"
+    # - name: reg
+    #   spec: discrete
+      # values: "[10**(-n) for n in range(7,2,-1)]"
+      # values: [1e-4]
+    # - name: epoch
+    #   spec: discrete
+    #   values: "range(0, 51, 2)"
+    # - name: width
+    #   spec: discrete
+    #   values: [500, 1000, 5000, 10000, 20000, 30000, 40000, 0]
+    # - name: subsetsize
+    #   spec: discrete
+    #   values: [50, 100, 500]
+                
+    # - name: folder
+    #   spec: discrete
+    #   values: "['7363263324.83877-7fb5cd91-b9f1-4594-bcac-a07ee9e85c2e/2/',
+    #             '7363263324.83720-e4225611-be6d-4b76-beb4-610d9f271ea6/2/',
+    #             '7363263324.83559-c6d8c068-08b2-435d-99e6-8e299d15f98e/2/',
+    #             '7363263324.83412-03048924-f899-4bc9-a820-91e3a8b83d1f/2/',
+    #             '7363263324.83255-6be1be71-532d-4bf9-85c5-102af7194570/2/',
+    #             '7363263324.83102-99e3fb99-ff97-479f-8df9-1aba3ca495ba/2/',
+    #             '7363263324.82950-c4c41c93-47db-4173-9c5a-1b437e83c575/2/',
+    #             '7363304442.10536-f34b9416-1ddc-4b94-a750-6a288a1099e0/2/']"

@@ -1,0 +1,63 @@
+description: PiLimit Kernels Cifar10
+
+target:
+  service: amlk8s
+  # name: ms-shared
+  name: itpeusp100cl
+
+environment:
+  image: pytorch/pytorch:1.9.0-cuda10.2-cudnn7-devel
+  setup:
+    - pip install tensorboard
+    - pip install matplotlib
+    - pip install ipywidgets
+    - pip install seaborn
+    - pip install tqdm
+    - pip install matplotlib
+    - pip install ipywidgets
+    - pip install opt_einsum
+code:
+  # local directory of the code. this will be uploaded to the server.
+  # $CONFIG_DIR is expanded to the directory of this config file
+  local_dir: $CONFIG_DIR/../../
+storage:
+  output:
+    storage_account_name: inflimitmsr
+    container_name: teamdrive
+    is_output: True
+# list of jobs to run, we run 2 jobs in this example
+search:
+  # name must be unique across the jobs
+  job_template:
+    name: inf-kernels-cifar10
+    sku: G1
+    command:
+    - python -m cifar10.cifar10test --cuda --kernel-reg={reg} --test-kernel --load-model-path="/mnt/output/projects/pilimit/amlt-results/{folder}/checkpoints/epoch{epoch}.th" --save-dir $$PT_OUTPUT_DIR --batch-size 32 --test-batch-size 32
+    # python -m cifar10.cifar10test --cuda --kernel-reg=1e-3 --test-kernel --load-model-path="/home/misantac/teamdrive/inflimitmsr/projects/pilimit/amlt-results/7364109134.82486-7fa08b71-374f-457c-a3c6-baa1ec47bde9/checkpoints/epoch35.th" --batch-size 32 --test-batch-size 32
+  type: grid
+  # max_trials: 200
+  # max_trials: 4
+  # max_trials: 702
+  # max_trials: 500
+  # max_trials: 150
+  max_trials: 160
+  params:
+    # - name: r
+    #   spec: discrete
+    #   values: "[400]"
+    - name: reg
+      spec: discrete
+      # values: "[10**(-n) for n in range(7,2,-1)]"
+      values: "[10**(-n) for n in range(6,2,-1)]"   # 4 values
+    - name: epoch
+      spec: discrete
+      values: "range(0, 41, 1)"
+      # values: "[0]"
+    - name: folder
+      spec: discrete
+      # pinet and munet epoch 0
+      # values: "['7364820427.43791-4962834e-a070-4e8c-badd-515adfe99a84']" # 2048 gaussnet
+      # values: "['7364558404.61470-12c51ea5-b50b-41db-8069-dfc0918355d6']" # wide gaussnet
+      # values: "['7364109134.82486-7fa08b71-374f-457c-a3c6-baa1ec47bde9']" # more scan gaussnet          what is this? maybe it's very very old...
+      values: "['7356091268.69600-3cf2d936-b765-4093-a964-07ac8b17c599']" 
+      

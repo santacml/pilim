@@ -1,0 +1,52 @@
+description: sweep GP Cifar10
+
+target:
+  service: amlk8s
+  name: ms-shared
+
+environment:
+  image: pytorch/pytorch:1.9.0-cuda10.2-cudnn7-devel
+  setup:
+    - pip install tensorboard
+    - pip install matplotlib
+    - pip install ipywidgets
+    - pip install seaborn
+    - pip install tqdm
+    - pip install matplotlib
+    - pip install ipywidgets
+    - pip install opt_einsum
+code:
+  # local directory of the code. this will be uploaded to the server.
+  # $CONFIG_DIR is expanded to the directory of this config file
+  local_dir: $CONFIG_DIR/../../
+storage:
+  output:
+    storage_account_name: inflimitmsr
+    container_name: teamdrive
+    is_output: True
+# list of jobs to run, we run 2 jobs in this example
+search:
+  # name must be unique across the jobs
+  job_template:
+    name: gp-sweep-cifar10
+    sku: G1
+    command:
+    - bash scans/cifar10/gp_depth_driver.sh
+      --varb {varb}
+      --reg {reg}
+      --savedir $$PT_OUTPUT_DIR
+  type: grid
+  max_trials: 5
+  params:
+    - name: varb
+      spec: discrete
+      # values: "1 * 2.**np.arange(-4, 2, 0.5)"
+      values: [0]
+    - name: reg
+      spec: discrete
+      values: "10.**np.arange(-8, -3)"
+
+    # coarse
+    # - name: varb
+    #   spec: discrete
+    #   values: "1 * 10.**np.arange(-4, 2, 0.5)"

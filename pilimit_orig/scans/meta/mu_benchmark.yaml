@@ -1,0 +1,109 @@
+description: sweep MuNet MAML
+
+target:
+  service: amlk8s
+  name: ms-shared
+
+environment:
+  image: elutece/philly_fairseq_cuda10:latest
+  setup:
+     - pip install torchvision==0.5.0 cox dill tables h5py --user
+     - pip install torchmeta==1.5.1 --user
+code:
+  # local directory of the code. this will be uploaded to the server.
+  # $CONFIG_DIR is expanded to the directory of this config file
+  local_dir: $CONFIG_DIR/../../
+storage:
+  output:
+    storage_account_name: inflimitmsr
+    container_name: teamdrive
+    is_output: True
+# list of jobs to run, we run 2 jobs in this example
+search:
+  # name must be unique across the jobs
+  job_template:
+    name: pinet-sweep-maml
+    sku: G1-V100
+    command:
+    - bash scans/meta/mu_benchmark_driver.sh
+      --step_size {step_size}
+      --meta_lr {meta_lr}
+      --grad_clip {grad_clip}
+      --bias_alpha {bias_alpha}
+      --first_layer_alpha {first_layer_alpha}
+      --first_layer_lr_mult {first_layer_lr_mult}
+      --first_layer_init_alpha {first_layer_init_alpha}
+      --second_layer_init_alpha {second_layer_init_alpha}
+      --batch_size {batch_size}
+      --savedir $$PT_OUTPUT_DIR
+  type: random
+  max_trials: 1
+  params:
+    # gclip per param fine
+    - name: step_size
+      spec: discrete
+      values: "0.5 * 2.**np.arange(-2, .75, 0.25)"
+    - name: meta_lr
+      spec: discrete
+      values: "16 * 2.**np.arange(-3, -.5, 0.25)"
+    - name: grad_clip
+      spec: discrete
+      values: "0.3 * 2.**np.arange(-2, 0.25, 0.25)"
+    - name: bias_alpha
+      spec: discrete
+      values: "4 * 2.**np.arange(-4, 0, 0.5)"
+    - name: first_layer_alpha
+      spec: discrete
+      values: "2 * 2.**np.arange(-1.75, .75, 0.25)"
+    - name: first_layer_lr_mult
+      spec: discrete
+      values: "0.2 * 2.**np.arange(.5, 2.25, 0.25)"
+    - name: first_layer_init_alpha
+      spec: discrete
+      values: "2 * 2.**np.arange(-1.75, .25, 0.25)"
+    - name: second_layer_init_alpha
+      spec: discrete
+      values: "2 * 2.**np.arange(-1.75, .25, 0.25)"
+    - name: batch_size
+      spec: discrete
+      values: [8]
+
+    #fine
+    # - name: step_size
+    #   spec: discrete
+    #   values: "0.5 * 2.**np.arange(-1.75, 1, 0.25)"
+    # - name: meta_lr
+    #   spec: discrete
+    #   values: "16 * 2.**np.arange(-2, .5, 0.25)"
+    # - name: grad_clip
+    #   spec: discrete
+    #   values: "0.3 * 2.**np.arange(-1.5, 1, 0.25)"
+    # - name: bias_alpha
+    #   spec: discrete
+    #   values: "4 * 2.**np.arange(-2.5, 1, 0.5)"
+    # - name: first_layer_alpha
+    #   spec: discrete
+    #   values: "2 * 2.**np.arange(-2, 2, 0.5)"
+    # - name: first_layer_lr_mult
+    #   spec: discrete
+    #   values: "0.2 * 2.**np.arange(-.5, 2, 0.25)"
+
+    #coarse
+    # - name: step_size
+    #   spec: discrete
+    #   values: "0.5 * 2.**np.arange(-2, 2, 0.5)"
+    # - name: meta_lr
+    #   spec: discrete
+    #   values: "16 * 2.**np.arange(-2, 2, 0.5)"
+    # - name: grad_clip
+    #   spec: discrete
+    #   values: "0.1 * 2.**np.arange(-2, 2, 0.5)"
+    # - name: bias_alpha
+    #   spec: discrete
+    #   values: "4 * 2.**np.arange(-2, 2, 0.5)"
+    # - name: first_layer_alpha
+    #   spec: discrete
+    #   values: "2 * 2.**np.arange(-2, 2, 0.5)"
+    # - name: first_layer_lr_mult
+    #   spec: discrete
+    #   values: "0.2 * 2.**np.arange(-2, 2, 0.5)"
