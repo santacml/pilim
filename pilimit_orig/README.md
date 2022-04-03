@@ -1,14 +1,14 @@
-# $\pi$-Limit
+# π-Limit
 
-Here we provide all of the original code for our paper. This repo could be quite difficult to reuse or modify given its highly specific structure tailored to  the $\pi$-Limit. 
+Here we provide all of the original code for our paper. This repo could be quite difficult to reuse or modify given its highly specific structure tailored to  the π-Limit. 
 
-For instance, in the $\pi$-Net, the A and B matrices are not accessible as torch parameters and the layers are not modules. This means that things such as torch-native saving, dataparallel, .named_parameters() iteration, and so on, will not work. 
+For instance, in the π-Net, the A and B matrices are not accessible as torch parameters and the layers are not modules. This means that things such as torch-native saving, dataparallel, .named_parameters() iteration, and so on, will not work. 
 
 We would not recommend using this repo except to reproduce the results from the paper using the commands below.
 
 # Structure
 
-[inf](inf) contains the implementation of the infinite and $\pi$-Net, the finite $\mu$-Net, and NNGP/NTK kernels. It also contains $\pi$-Net specific mathematical functions, InfSGD, dynamically expanding arrays. and any other supporting $\pi$-Net infrastructure.
+[inf](inf) contains the implementation of the infinite and π-Net, the finite μ-Net, and NNGP/NTK kernels. It also contains π-Net specific mathematical functions, InfSGD, dynamically expanding arrays. and any other supporting π-Net infrastructure.
 
 [cifar10](cifar10), [imagenet](imagenet), and [meta](meta) contain the training and testing files for each of their respective tasks. 
 
@@ -24,7 +24,7 @@ This folder also contains a .zip file with all of the original dataframes with r
 
 Here we provide all of the commands and hyperparameters to reproduce any of the results from the best-performing networks of each variety on each task (Table 1). Each link in this table goes to a command which, when run, should reproduce the results (though may be very slightly off due to seeding/machine specific issues).
 
-|  | NNGP   | NTK | Finite $\mu$-Net  | Finite $\pi$-Net | Infinite $\pi$-Net | 
+|  | NNGP   | NTK | Finite μ-Net  | Finite π-Net | Infinite π-Net | 
 | ------------- |---------| --| --| --| --|
 | CIFAR10     | [58.92](#-cifar10-nngp)  | [ 59.63](#-cifar10-ntk) | [61.31](#-cifar10-munet) | [60.64](#-cifar10-finpinet) |  [61.50](#-cifar10-infpinet)| 
 | MAML      | [ 43.80](#-maml-nngp)  | [ 51.72](#-maml-ntk) | [91.22](#-maml-munet) | [92.21](#-maml-finpinet) |  [ 91.46](#-maml-infpinet) | 
