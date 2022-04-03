@@ -26,8 +26,8 @@ Here we provide all of the commands and hyperparameters to reproduce any of the 
 
 |  | NNGP   | NTK | Finite μ-Net  | Finite π-Net | Infinite π-Net | 
 | ------------- |---------| --| --| --| --|
-| CIFAR10     | [58.92](#-cifar10-nngp)  | [ 59.63](#-cifar10-ntk) | [61.31](#-cifar10-munet) | [60.64](#-cifar10-finpinet) |  [61.50](#-cifar10-infpinet)| 
-| MAML      | [ 43.80](#-maml-nngp)  | [ 51.72](#-maml-ntk) | [91.22](#-maml-munet) | [92.21](#-maml-finpinet) |  [ 91.46](#-maml-infpinet) | 
+| CIFAR10     | [58.92](#cifar10-nngp)  | [ 59.63](#cifar10-ntk) | [61.31](#cifar10-munet) | [60.64](#cifar10-finpinet) |  [61.50](#cifar10-infpinet)| 
+| MAML      | [ 43.80](#maml-nngp)  | [ 51.72](#maml-ntk) | [91.22](#maml-munet) | [92.21](#maml-finpinet) |  [ 91.46](#maml-infpinet) | 
 
 
 
