@@ -18,15 +18,7 @@ class DynArr():
   def _cat(self, arr):
     size = arr.shape[0]
     if self.size + size > len(self.arr):
-      # if self.d is not None:
-      #   assert arr.shape[1] == self.d
-      #   new_arr = torch.zeros([int((self.resizemult-1) * (self.size + size)), self.d], device=self.arr.device)
-      # else:
-      #   assert len(arr.shape) == 1
-      #   new_arr = torch.zeros([int((self.resizemult-1) * (self.size + size))], device=self.arr.device)
-      # self.arr = torch.cat([self.arr, new_arr])
       newsize = int(self.resizemult * self.size + size)
-      # print(f'resizing from {self.size}/{len(self.arr)} to {newsize}')
       if self.d is not None:
         assert arr.shape[1] == self.d
         self.arr.resize_(newsize, self.d)

@@ -6,12 +6,6 @@ import numpy as np
 from inf.dynamicarray import DynArr, CycArr
 from inf.utils import safe_sqrt, safe_acos, F00ReLUsqrt, F11ReLUsqrt, F02ReLUsqrt, VReLUmatrix, ABnorm
 
-# counter = 0
-# counterlist = range(242,246)
-# counterlist = range(236,237)
-# counterlist = range(2,6)
-# endcounter = 4
-
 class MyLinear(nn.Linear):
 
   def __init__(self, *args, **kw):
@@ -240,9 +234,6 @@ class InfPiMLP():
       self.biases[L+1] = torch.zeros(dout, device=device).float()
       self.dbiases[L+1] = torch.zeros(dout, device=device)
     self.initialize(quiet, readout_zero_init=readout_zero_init)
-    # internal statistics keeping track of how much pruning done
-    self._prune_count = {}
-    self.reset_prune_count()
 
   def initialize_from_data(self, X, sigma=2**0.5, dotest=True):
     # X has shape (B, d)
@@ -763,8 +754,7 @@ class InfPiMLP():
   def step(self, lr, wd=0, buffer=None, momentum=0, dampening=0,
           bias_lr_mult=1, first_layer_lr_mult=1,
           last_layer_lr_mult=1,
-          apply_lr_mult_to_wd=True,
-          prunetol=None):
+          apply_lr_mult_to_wd=True):
     
       
     dAs = self.dAs
@@ -775,25 +765,6 @@ class InfPiMLP():
       dBs = buffer[1]
       if self.biases is not None:
         dbiases = buffer[2]
-
-    # if buffer is not None:
-    #   print('meta grad buffer')
-    #   print('\tdbias', [b.norm(p=1).item() for b in dbiases.values()])
-    #   print('\tdA1', dAs[1].norm(p=1).item())
-    #   print('\tdA2', [a.norm(p=1).item() for a in dAs[2]])
-    #   print('\tdA3', [a.norm(p=1).item() for a in dAs[3]])
-    #   print('\tdB2', [a.norm(p=1).item() for a in dBs[2]])
-    #   print('\tdB3', [a.norm(p=1).item() for a in dBs[3]])
-    # else:
-    #   print('self grad buffer')
-    #   print('\tdbias', [b.norm().item() for b in dbiases.values()])
-    #   # print('\tdA1', dAs[1].norm().item())
-    #   # print('\tdA2', [a.norm().item() for a in dAs[2]])
-    #   print('\tdA3', [a.norm(p=1).item() for a in dAs[3]])
-    #   print('\tdB3', [a.norm(p=1).item() for a in dBs[3]])
-
-    # if prunetol:
-    #   self.prune_grad(prunetol)
 
     if momentum > 0:
       # momentum buffer
@@ -811,7 +782,6 @@ class InfPiMLP():
         self.biasesV = {}
         for l in range(1, self.L+2):
           self.biasesV[l] = torch.zeros_like(self.biases[l])
-      # TODO: implement pruning for momentum
       # TODO: implement nesterov
       self.A1V.mul_(momentum).add_(dAs[1] + self.As[1] * wd,
                                     alpha=1-dampening)
@@ -867,11 +837,6 @@ class InfPiMLP():
             factor = 1 - lr * wd * (bias_lr_mult if apply_lr_mult_to_wd else 1)
             self.biases[l] *= factor
       
-      # if prunetol:
-      #   self.prune_update(lr, prunetol)
-      if prunetol:
-        self.prune_greg(lr, prunetol)
-
       self.As[1] -= lr * dAs[1] * first_layer_lr_mult
       for l in range(2, self.L+2):
         mult = last_layer_lr_mult if l == self.L+1 else 1
@@ -890,168 +855,6 @@ class InfPiMLP():
       if self.biases is not None:
         for l in range(1, self.L+2):
           self.biases[l] -= lr * bias_lr_mult * dbiases[l]
-
-    # print('\tA3', self.As[3].a.norm(p=1))
-    # print('\tB3', self.Bs[3].a.norm(p=1))
-
-  def reset_prune_count(self):
-    for l in range(2, self.L+2):
-      self._prune_count[l] = 0
-
-  def prune_greg(self, lr, tol=1e-1):
-    raise NotImplementedError('need to implement Amult')
-    for l in range(2, self.L+2):
-      A = self.As[l].a
-      B = self.Bs[l].a
-      _dAs = []
-      _dBs = []
-      if isinstance(tol, dict):
-        _tol = tol[l]
-      elif isinstance(tol, list):
-        _tol = tol[l-2]
-      elif isinstance(tol, float):
-        _tol = tol
-      else:
-        raise ValueError()
-      for dA, dB in zip(self.dAs[l], self.dBs[l]):
-        # shape (M, B)
-        cov = B @ dB.T
-        thres = 1 - _tol / 2
-        # collision 0/1, shape (M, B)
-        col = (cov > thres).int()
-        # collision counts
-        # shape (B,)
-        dB_counts = col.sum(dim=0)
-        # # shape (M,)
-        # B_counts = col.sum(dim=1)
-
-        new = dB_counts == 0
-        old = dB_counts > 0
-        self._prune_count[l] += old.int().sum().item()
-        # if (dB_counts >= 2).int().sum() > 0:
-        #   print('\t', dB_counts[dB_counts >= 2])
-        # TODO: fast scatter version
-        # A -= lr * col @ dA
-        if True:
-          A -= lr * (col[:, old] / dB_counts[old]) @ dA[old]
-        # else:
-        #   idx_old = torch.nonzero(old)
-        #   mydA = dA[idx_old]
-        #   col_old = col[:, idx_old]
-          
-
-        _dAs.append(dA[new])
-        _dBs.append(dB[new])
-        
-      self.dAs[l].clear()
-      self.dBs[l].clear()
-      self.dAs[l].extend(_dAs)
-      self.dBs[l].extend(_dBs)
-
-
-  def prune_grad(self, tol=1e-1):
-    raise NotImplementedError('need to implement Amult')
-    for l in range(2, self.L+2):
-      do_again = True
-      while(do_again):
-        dA = self.dAs[l][0]
-        A = self.As[l].a
-        dB = self.dBs[l][0]
-        B = self.Bs[l].a.cuda()
-        m = B.shape[0]
-        m_g = dB.shape[0]
-        
-        grad_dist_matrix = torch.norm(dB.unsqueeze(1) - dB.unsqueeze(0), dim=2) 
-        grad_dist_matrix[torch.tril(torch.ones(m_g, m_g)) == 1] = float("inf")
-
-        indices = (grad_dist_matrix < tol).nonzero()
-        if indices.shape[0] < 10:
-          do_again = False
-          break
-        zeroed = {}
-        pairs = []
-
-        indices = np.array(indices.cpu())
-        indices = indices[np.unique(indices[:,[0]],return_index=True,axis=0)[1]]
-        indices = indices[np.unique(indices[:,[1]],return_index=True,axis=0)[1]]
-        indices_to_keep = torch.ones(indices.shape[0])
-        for n, (i,j) in enumerate(indices):
-            if i == j or int(i) in zeroed or int(j) in zeroed:
-                indices_to_keep[n] = 0
-                continue
-            else:
-                zeroed[int(i)] = 1
-                zeroed[int(j)] = 1
-                pairs.append((int(i),int(j)))
-        indices = np.array(pairs)
-        
-        rows_to_take = torch.ones(m_g)
-        rows_to_take[indices[:, 1]] = 0
-        dA[indices[:, 0]] += dA[indices[:, 1]]
-        
-        dA = dA[rows_to_take.to(dtype=torch.bool)]
-        dB = dB[rows_to_take.to(dtype=torch.bool)]
-        self.dAs[l][0] = dA
-        self.dBs[l][0] = dB
-
-  def prune_update(self, lr, tol=1e-1):
-    raise NotImplementedError('need to implement Amult')
-    for l in range(2, self.L+2):
-      do_again = True
-      while(do_again):
-        if self.dAs[l][0].shape[0] == 0:
-          # completely removed grad previously
-          break
-        dA = self.dAs[l][0]
-        A = self.As[l].a
-        dB = self.dBs[l][0]
-        B = self.Bs[l].a.cuda()
-        m = B.shape[0]
-        m_g = dB.shape[0]
-        
-        indices = None
-        # indices = []
-        batch_size = 10000
-        for n in range(int(B.shape[0] / batch_size) + 1):
-          idx1 = int(n*batch_size)
-          idx2 = int((n+1)*batch_size)
-          if (idx2 > B.shape[0]): idx2 = B.shape[0]
-          if idx1 == idx2: break
-          B_batch = B[idx1:idx2, :]
-          m_batch = idx2-idx1
-          dist_matrix = torch.norm(B_batch.unsqueeze(1) - dB.unsqueeze(0), dim=2) 
-          batch_indices = (dist_matrix < tol).nonzero()
-          batch_indices[:, 0] += int(n*batch_size)
-          if indices == None:
-            indices = batch_indices
-          else:
-            indices = torch.cat([indices, batch_indices], dim=0)
-        
-        if indices.shape[0] == 0:
-          do_again = False
-          break
-        indices = np.array(indices.cpu())
-        indices = indices[np.unique(indices[:,[0]],return_index=True,axis=0)[1]]
-        indices = indices[np.unique(indices[:,[1]],return_index=True,axis=0)[1]]
-        pairs = []
-        zeroed = {}
-        for (i,j) in indices:
-            if i == j or int(i) in zeroed or int(j) in zeroed:
-                continue
-            else:
-                zeroed[int(i)] = 1
-                zeroed[int(j)] = 1
-                pairs.append((int(i),int(j)))
-        indices = np.array(pairs)
-
-        rows_to_take = torch.ones(m_g)
-        rows_to_take[indices[:, 1]] = 0
-        A[indices[:, 0]] += -lr * dA[indices[:, 1]].to(A.device)
-
-        dA = dA[rows_to_take.to(dtype=torch.bool)]
-        dB = dB[rows_to_take.to(dtype=torch.bool)]
-        self.dAs[l][0] = dA
-        self.dBs[l][0] = dB
 
   def train(self):
     pass

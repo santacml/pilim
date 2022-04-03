@@ -46,8 +46,7 @@ do
                 --lr-drop-milestones $milestones \
                 --scheduler multistep \
                 --wd $wd"
-    TRAIN_ARGS="--r 400 \
-                --width 2048 \
+    TRAIN_ARGS="--width 2048 \
                 --batch-size $batch_size \
                 --epochs 50 \
                 --cuda \

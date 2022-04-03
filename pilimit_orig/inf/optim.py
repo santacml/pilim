@@ -32,8 +32,7 @@ class InfSGD():
       last_layer_lr_mult=1,
       apply_lr_mult_to_wd=True,
       gclip=0,
-      gclip_per_param=False,
-      prunetol=None):
+      gclip_per_param=False):
     self.lr = lr
     self.bias_lr_mult = bias_lr_mult
     self.first_layer_lr_mult = first_layer_lr_mult
@@ -43,7 +42,6 @@ class InfSGD():
     self.momentum = momentum
     self.gclip = gclip
     self.gclip_per_param = gclip_per_param
-    self.prunetol = prunetol
     self.model = model
   def step(self, buffer=None):
     if self.gclip > 0:
@@ -52,8 +50,7 @@ class InfSGD():
       momentum=self.momentum, bias_lr_mult=self.bias_lr_mult,
       first_layer_lr_mult=self.first_layer_lr_mult,
       last_layer_lr_mult=self.last_layer_lr_mult,
-      apply_lr_mult_to_wd=self.apply_lr_mult_to_wd,
-      prunetol=self.prunetol)
+      apply_lr_mult_to_wd=self.apply_lr_mult_to_wd)
   def zero_grad(self):
     self.model.zero_grad()
 

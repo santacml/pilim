@@ -87,8 +87,6 @@ def main(arglst=None):
                       help='loss func')
   parser.add_argument('--r', type=int, default=400,
                       help='rank of Z space')
-  parser.add_argument('--prunetol', type=str, default='',
-                      help='comma-separated list of per layer prune tolerances')
   parser.add_argument('--init-from-data', action='store_true',
                       help='initializing infnet from data')
   parser.add_argument('--init-A-B-direct', action='store_true',
@@ -123,11 +121,6 @@ def main(arglst=None):
     args = parser.parse_args()
   else:
     args = parser.parse_args(arglst)
-
-  if args.prunetol:
-    args.prunetol = [float(v) for v in args.prunetol.split(',')]
-    if len(args.prunetol) == 1:
-      args.prunetol = args.prunetol[0]
   
   if args.scheduler == 'None':
       args.scheduler = None
@@ -274,9 +267,6 @@ def main(arglst=None):
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item(), elapsed, torch.cuda.max_memory_reserved()/ 1e9, cpu_memory / 1e9  ))
             tic = toc
-            ### REVERT
-            # print(f'Pruned {model._prune_count}; M = {model.As[2].size}')
-            # model._prune_count = 0
               
           
       train_loss /= len(train_loader.dataset)
@@ -492,15 +482,6 @@ def main(arglst=None):
       model_file = os.path.join(model_path, f'epoch{epoch}.th')
       with open(model_file, 'wb') as f:
         torch.save(mynet, f)
-    if width is None:
-      pruned_pc = dict()
-      Ms = dict()
-      for l in range(2, args.depth+2):
-        pruned_pc[l] = mynet._prune_count[l] / 5e2
-        Ms[l] = mynet.As[l].size
-    # pruned_pc3 = mynet._prune_count[3] / 5e2
-    # M2 = mynet.As[2].size
-    # M3 = mynet.As[3].size
     log_df.append(
       dict(
         epoch=epoch,
@@ -511,28 +492,12 @@ def main(arglst=None):
         epoch_time=epoch_time,
         **vars(args)
     ))
-    if width is None:
-      for l in pruned_pc.keys():
-        log_df[-1][f'prune{l}'] = pruned_pc[l]
-        log_df[-1][f'M{l}'] = Ms[l]
     if not args.human and not args.quiet:
       if epoch == 1:
         header = f'epoch\ttr loss\tts loss\ttr acc\tts acc\ttime'
-        if width is None:
-          header_prune = ''.join([f'\tprune{l}' for l in pruned_pc.keys()])
-          header_M = ''.join([f'\tM{l}' for l in pruned_pc.keys()])
-        else:
-          header_prune = header_M = ''
-        print(header + header_prune + header_M)
+        print(header)
       stats = f'{epoch}\t{np.mean(train_losses[-1]):.3f}\t{test_losses[-1]:.3f}\t{train_acc}\t{test_accs[-1]}\t{epoch_time/60.:0.2f}'
-      if width is None:
-        prune_stats = ''.join([f'\t{pruned_pc[l]:0.1f}%' for l in pruned_pc.keys()])
-        M_stats = ''.join([f'\t{Ms[l]}' for l in pruned_pc.keys()])
-        mynet.reset_prune_count()
-      else:
-        prune_stats = M_stats = ''
-      print(stats + prune_stats + M_stats)
-      # '\t{pruned_pc2:0.1f}%\t{pruned_pc3:0.1f}%\t{M2}\t{M3}'
+      print(stats)
 
     if args.transfer and epoch in transfer_milestones:
       print("Evaluating transferred learning mid-training (no finetuning)")

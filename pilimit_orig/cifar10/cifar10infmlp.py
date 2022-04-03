@@ -87,8 +87,6 @@ def main(arglst=None):
                       help='loss func')
   parser.add_argument('--r', type=int, default=200,
                       help='rank of Z space')
-  parser.add_argument('--prunetol', type=str, default='',
-                      help='comma-separated list of per layer prune tolerances')
   parser.add_argument('--init-from-data', action='store_true',
                       help='initializing infnet from data')
   parser.add_argument('--gaussian-init', action='store_true',
@@ -119,11 +117,6 @@ def main(arglst=None):
 
   if args.width == 0:
     args.width = None
-
-  if args.prunetol:
-    args.prunetol = [float(v) for v in args.prunetol.split(',')]
-    if len(args.prunetol) == 1:
-      args.prunetol = args.prunetol[0]
   
   if args.scheduler == 'None':
       args.scheduler = None
@@ -242,9 +235,6 @@ def main(arglst=None):
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item(), elapsed))
             tic = toc
-            ### REVERT
-            # print(f'Pruned {model._prune_count}; M = {model.As[2].size}')
-            # model._prune_count = 0
               
           
       train_loss /= len(train_loader.dataset)
@@ -278,17 +268,14 @@ def main(arglst=None):
 
 
 
-  # %%
   lr = args.lr
   wd = args.wd
   gclip = args.gclip
-  # depth
   L = args.depth
-  # rank of Z space
   r = args.r
   din = 32**2 * 3
   dout = 10
-  #
+  
   infnet = InfPiMLP(d=din, dout=dout, L=L, r=r,
                     first_layer_alpha=args.first_layer_alpha,
                     last_layer_alpha=args.last_layer_alpha,
@@ -297,7 +284,6 @@ def main(arglst=None):
                     last_bias_alpha=args.last_bias_alpha,
                     _last_layer_grad_no_alpha=args.last_layer_grad_no_alpha,
                     layernorm=args.layernorm,
-                    # switch to DynArr if don't want cyclic
                     arrbackend=CycArr if args.cycarr else DynArr, maxsize=10**6)
 
   if args.init_from_data:
@@ -313,16 +299,12 @@ def main(arglst=None):
       first_layer_lr_mult=args.first_layer_lr_mult,
       last_layer_lr_mult=args.last_layer_lr_mult,
       apply_lr_mult_to_wd=not args.no_apply_lr_mult_to_wd,
-      bias_lr_mult=args.bias_lr_mult, prunetol=args.prunetol)
+      bias_lr_mult=args.bias_lr_mult)
     mynet = infnet
   else:
-    # if args.no_apply_lr_mult_to_wd:
-    #   raise NotImplementedError()
     if args.last_layer_grad_no_alpha:
       raise NotImplementedError()
     torch.set_default_dtype(torch.float32)
-    # mynet = FinPiMLP(din, args.width, dout, L)
-    # mynet.initialize(infnet.cpu().float())
     mynet = infnet.sample(args.width, tieomegas=args.tie_omegas)
     mynet = mynet.cuda()
     if args.gaussian_init:
@@ -332,9 +314,6 @@ def main(arglst=None):
     if not args.float:
       torch.set_default_dtype(torch.float16)
       mynet = mynet.half()
-    # if args.bias_lr_mult != 1 or args.first_layer_lr_mult != 1:
-      # import pdb; pdb.set_trace()
-      # raise NotImplementedError()
     paramgroups = []
     # first layer weights
     paramgroups.append({
@@ -360,7 +339,6 @@ def main(arglst=None):
         'weight_decay': wd / args.bias_lr_mult if args.no_apply_lr_mult_to_wd else wd
       })
     optimizer = SGD(paramgroups, lr, weight_decay=wd)
-    # optimizer = SGD(mynet.parameters(), lr, weight_decay=wd)
 
   milestones = []
   if args.lr_drop_milestones:
@@ -399,7 +377,6 @@ def main(arglst=None):
 
   log_df = []
   if args.save_dir:
-    # print(f'results saved to {args.save_dir}')
     print(f"logs will be saved to {os.path.join(args.save_dir, 'log.df')}")
     if args.save_model:
       print(f"checkpoints saved to {os.path.join(args.save_dir, 'checkpoints')}")
@@ -412,12 +389,6 @@ def main(arglst=None):
 
   # %%
   for epoch in range(1, args.epochs+1):
-    # if epoch in [30, 35, 40]:
-    #   if isinstance(optimizer, InfSGD):
-    #     optimizer.lr *= 0.1
-    #   else:
-    #     for param_group in optimizer.param_groups:
-    #       param_group['lr'] *= 0.1
     epoch_start = time.time()
     losses, train_acc = train_nn(mynet, device, train_loader, optimizer, epoch, Gproj=not args.no_Gproj, gclip_sch=gclip_sch, scheduler=sch)
     epoch_end = time.time()
@@ -433,16 +404,7 @@ def main(arglst=None):
       model_file = os.path.join(model_path, f'epoch{epoch}.th')
       with open(model_file, 'wb') as f:
         torch.save(mynet, f)
-      # print(f'model saved at {model_file}')
-    if args.width is None:
-      pruned_pc = dict()
-      Ms = dict()
-      for l in range(2, args.depth+2):
-        pruned_pc[l] = mynet._prune_count[l] / 5e2
-        Ms[l] = mynet.As[l].size
-    # pruned_pc3 = mynet._prune_count[3] / 5e2
-    # M2 = mynet.As[2].size
-    # M3 = mynet.As[3].size
+      print(f'model saved at {model_file}')
     log_df.append(
       dict(
         epoch=epoch,
@@ -457,33 +419,16 @@ def main(arglst=None):
         epoch_time=epoch_time,
         **vars(args)
     ))
-    if args.width is None:
-      for l in pruned_pc.keys():
-        log_df[-1][f'prune{l}'] = pruned_pc[l]
-        log_df[-1][f'M{l}'] = Ms[l]
     if not args.human and not args.quiet:
       if epoch == 1:
         header = f'epoch\ttr loss\tts loss\ttr acc\tts acc\ttime'
-        if args.width is None:
-          header_prune = ''.join([f'\tprune{l}' for l in pruned_pc.keys()])
-          header_M = ''.join([f'\tM{l}' for l in pruned_pc.keys()])
-        else:
-          header_prune = header_M = ''
-        print(header + header_prune + header_M)
+        print(header)
       stats = f'{epoch}\t{np.mean(train_losses[-1]):.3f}\t{test_losses[-1]:.3f}\t{train_acc}\t{test_accs[-1]}\t{epoch_time/60.:0.2f}'
-      if args.width is None:
-        prune_stats = ''.join([f'\t{pruned_pc[l]:0.1f}%' for l in pruned_pc.keys()])
-        M_stats = ''.join([f'\t{Ms[l]}' for l in pruned_pc.keys()])
-        mynet.reset_prune_count()
-      else:
-        prune_stats = M_stats = ''
-      print(stats + prune_stats + M_stats)
-      # '\t{pruned_pc2:0.1f}%\t{pruned_pc3:0.1f}%\t{M2}\t{M3}'
+      print(stats)
     if args.save_dir:
       log_file = os.path.join(args.save_dir, 'log.df')
       os.makedirs(args.save_dir, exist_ok=True)
       pd.DataFrame(log_df).to_pickle(log_file)
-      # print(f'log dataframe saved at {log_file}')
   return min(test_accs)
 
 # %%
