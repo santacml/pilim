@@ -27,4 +27,5 @@ Here are the things we are planning to add to the repo, in order of priority:
   - main testing/training file comments 
   - caveats with .parameters, sgd, gclip, backward explanation, etc
 - Upload saved .pkl version of each best model
+- Create easily usable pip package for pilimit_lib
 - Colab notebook for easy reproducibility
