@@ -59,23 +59,23 @@ Todo: need to find maml hparams, they are not saveed
 
 ## MAML NNGP
 
-python -m meta.train dataset --batch-size 8 --num-epochs 1 --scheduler multistep --varb $varb --depth $depth --kernel-reg $reg --dataset omniglot --num-ways 5 --num-shots 1 --use-cuda --num-workers 8 --num-shots-test 1 --first-order --verbose --validate-only --overwrite-existing --test-dataset-split val --num-test-batches 500 --step-size 0.5 --hidden-size -1 --gp --output-folder  "./"
+python -m meta.train dataset --batch-size 8 --num-epochs 1 --scheduler multistep --varb 1 --depth 2 --dataset omniglot --num-ways 5 --num-shots 1 --use-cuda --num-workers 8 --num-shots-test 1 --first-order --verbose --validate-only --overwrite-existing --test-dataset-split val --num-test-batches 500 --step-size 0.5 --hidden-size -1 --gp --output-folder  "./"
 
 ## MAML NTK
 
-python -m meta.train dataset --batch-size 8 --num-epochs 1 --scheduler multistep --varb $varb --depth $depth --kernel-reg $reg --dataset omniglot --num-ways 5 --num-shots 1 --use-cuda --num-workers 8 --num-shots-test 1 --first-order --verbose --validate-only --overwrite-existing --test-dataset-split val --num-test-batches 500 --step-size 0.5 --hidden-size -1 --gp --output-folder  "./"
+python -m meta.train dataset --batch-size 8 --num-epochs 1 --scheduler multistep --varb 1 --depth 2 --dataset omniglot --num-ways 5 --num-shots 1 --use-cuda --num-workers 8 --num-shots-test 1 --first-order --verbose --validate-only --overwrite-existing --test-dataset-split val --num-test-batches 500 --step-size 0.5 --hidden-size -1 --ntk --output-folder  "./"
 
 ## MAML MuNet
 
-python -m meta.train dataset --num-epochs 50 --meta-lr $meta_lr --step-size $step_size --batch-size 8 --grad-clip $grad_clip --meta-momentum 0 --bias-alpha $bias_alpha --first-layer-alpha $first_layer_alpha --first-layer-lr-mult $first_layer_lr_mult --last-layer-lr-mult 0 --scheduler cosine --readout-zero-init --dataset omniglot --num-ways 5 --num-shots 1 --use-cuda --num-workers 2 --num-shots-test 1  --normalize None --hidden-size -1 --depth $depth --dtype float16 --num-batches 1000  --num-test-batches 500 --adapt-readout-only --Gproj-inner  --Gproj-outer  --output-folder  "./"/$r
+python -m meta.train dataset --num-epochs 50 --meta-lr  4.0 --step-size 0.594604 --batch-size 14 --grad-clip 0.15 --meta-momentum 0 --bias-alpha  0.5 --first-layer-alpha  0.594604 --first-layer-lr-mult 0.4 --first-layer-init-alpha  0.840896 --second-layer-init-alpha 0.594604 --last-layer-lr-mult 0 --scheduler cosine --readout-zero-init --dataset omniglot --num-ways 5 --num-shots 1 --use-cuda --num-workers 2 --num-shots-test 1  --normalize None --hidden-size -1 --depth 2 --dtype float16 --num-batches 1000  --num-test-batches 500 --adapt-readout-only --mu-init  --output-folder  "./"
 
 ## MAML FinPiNet
 
-python -m meta.train dataset --num-epochs 50 --meta-lr $meta_lr --step-size $step_size --batch-size 8 --grad-clip $grad_clip --meta-momentum 0 --bias-alpha $bias_alpha --first-layer-alpha $first_layer_alpha --first-layer-lr-mult $first_layer_lr_mult --last-layer-lr-mult 0 --scheduler cosine --readout-zero-init --dataset omniglot --num-ways 5 --num-shots 1 --use-cuda --num-workers 2 --num-shots-test 1  --normalize None --hidden-size -1 --depth $depth --dtype float16 --num-batches 1000  --num-test-batches 500 --adapt-readout-only --Gproj-inner  --Gproj-outer  --infnet_r $r  --output-folder  "./"/$r
+python -m meta.train dataset --num-epochs 50 --meta-lr $meta_lr --step-size 0.25 --batch-size 8 --grad-clip 0.282843 --meta-momentum 0 --bias-alpha  2.828427  --first-layer-alpha 1.0 --first-layer-lr-mult 0.4 --last-layer-lr-mult 0 --scheduler cosine --readout-zero-init --dataset omniglot --num-ways 5 --num-shots 1 --use-cuda --num-workers 2 --num-shots-test 1  --normalize None --hidden-size -1 --depth 2 --dtype float16 --num-batches 1000  --num-test-batches 500 --adapt-readout-only --Gproj-inner  --Gproj-outer  --infnet_r 400  --output-folder  "./"
 
 ## MAML InfPiNet
 
-python -m meta.train dataset --num-epochs 50 --meta-lr $meta_lr --step-size $step_size --batch-size 8 --grad-clip $grad_clip --meta-momentum 0 --bias-alpha $bias_alpha --first-layer-alpha $first_layer_alpha --first-layer-lr-mult $first_layer_lr_mult --last-layer-lr-mult 0 --scheduler cosine --readout-zero-init --dataset omniglot --num-ways 5 --num-shots 1 --use-cuda --num-workers 2 --num-shots-test 1  --normalize None --hidden-size -1 --depth $depth --dtype float16 --num-batches 1000  --num-test-batches 500 --adapt-readout-only --Gproj-inner  --Gproj-outer  --infnet_r $r  --output-folder  "./"/$r
+python -m meta.train dataset --num-epochs 50 --meta-lr 32.0 --step-size 0.353553 --batch-size 8 --grad-clip  0.1   --meta-momentum 0 --bias-alpha 1.414214 --first-layer-alpha 1.0 --first-layer-lr-mult 0.400000 --last-layer-lr-mult 0 --scheduler cosine --readout-zero-init --dataset omniglot --num-ways 5 --num-shots 1 --use-cuda --num-workers 2 --num-shots-test 1  --normalize None --hidden-size -1 --depth 2 --dtype float16 --num-batches 1000  --num-test-batches 500 --adapt-readout-only --Gproj-inner  --Gproj-outer  --infnet_r 400  --output-folder  "./"
 
 
 

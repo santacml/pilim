@@ -17,12 +17,12 @@ Therefore, pilimit_lib is a rewrite of the library with an emphasis on reusing a
 Here are the things we are planning to add to the repo, in order of priority:
 
 - Document original repo
-  - MAML hparams
   - transfer imagenet hparams, numbers
   - add comments and explanations to main testing/training/class files
   - Updated FKR and transfer results
   - Add caption to each graphing file to describe which figure it is
   - Remove unnecessary files and any useless comments, add proper formatting in important files
+  - double-check command rerun for accuracy
 - Document torch-style repo
   - main testing/training file comments 
   - caveats with .parameters, sgd, gclip, backward explanation, etc
