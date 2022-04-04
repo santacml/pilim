@@ -106,13 +106,19 @@ python -m meta.train dataset --num-epochs 50 --meta-lr 32.0 --step-size 0.353553
 
 python -m imagenet.transfer_imagenet --save-dir="./output/" --gaussian-init --save-model --cuda --width={width} --lr=0.005 --batch-size=16 --gclip=0.0 --epochs=40 --human --wd=0.008 --bias-alpha=4.0  --first-layer-lr-mult=0.553341 --last-layer-lr-mult=5.656854 --gclip-per-param 
 
+Test with: epoch 32 reg 1e-4
+
 ## Imagenet FinPiNet r 200
 
 python -m imagenet.transfer_imagenet  --save-dir="./output/" --save-model --cuda --width=2048 --r 200 --lr=0.028284 --batch-size=16 --gclip=0.4  --epochs=40 --human --wd=0.000177 --bias-alpha=0.353553  --first-layer-lr-mult= 1.524828 --last-layer-lr-mult=1.0 --gclip-per-param 
 
+Test with: epoch 27, reg 1e-4
+
 ## Imagenet FinPiNet r 400
 
 python -m imagenet.transfer_imagenet  --save-dir="./output/" --save-model --cuda --width=2048 --r 400 --lr=0.05 --batch-size=16 --gclip=0.8  --epochs=40 --human --wd=0.0005 --bias-alpha=0.707107 --first-layer-lr-mult=0.612372 --last-layer-lr-mult=1.0 --gclip-per-param 
+
+Test with: epoch 31 reg 1e-3
 
 ## Imagenet InfPiNet r 200
 
