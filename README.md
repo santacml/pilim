@@ -20,12 +20,10 @@ Here are the things we are planning to add to the repo, in order of priority:
   - transfer imagenet hparams, numbers
   - add comments and explanations to main testing/training/class files
   - Updated FKR and transfer results
-  - Add caption to each graphing file to describe which figure it is
   - Remove unnecessary files and any useless comments, add proper formatting in important files
-  - double-check command rerun for accuracy
+  - double-check command rerun for accuracy / upload saved .pkl version of each best model
 - Document torch-style repo
   - main testing/training file comments 
   - caveats with .parameters, sgd, gclip, backward explanation, etc
-- Upload saved .pkl version of each best model
 - Create easily usable pip package for pilimit_lib
 - Colab notebook for easy reproducibility
