@@ -54,7 +54,13 @@ python -m cifar10.cifar10infmlp --lr 1.0 --gclip-per-param --gclip 0.4 --lr-drop
 
 
 
-Todo: need to find maml hparams, they are not saveed
+# MAML testing notes
+
+For maml, each of these commands will only go through the training cycle. To obtain final testing performance, it's necessary to run the saved config file from the training cycle through this command:
+
+python -m meta.test --config '/path/to/config.json' --use-cuda --seed 0"
+
+And also note that performance varies per seed, so it is recommended to run over many seeds.
 
 
 ## MAML NNGP
