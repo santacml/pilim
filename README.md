@@ -6,24 +6,25 @@ This repo is a work in progress, we will continue to update the repo over time. 
 
 # Structure
 
-There are two main folders, [pilimit_orig](pilimit_orig) and [pilimit_lib](pilimit_lib). pilimit_orig contains the original code for the paper for reproducibility, with light documentation. Each folder has a separate readme with instructions for use.
+There are two main folders, [pilimit_orig](pilimit_orig) and [pilimit_lib](pilimit_lib). pilimit_orig contains the original code for the paper for reproducibility, with light documentation. pilimit_lib is the library you should use if you want to create your own pi-nets. Each folder has a separate readme with instructions for use.
 
-After writing the paper, we found the code difficult for re-use. Given its highly specific nature, here are many "gotcha's" that are hard to work around. We include this library so if someone else wants to double-check our paper or reproduce it exactly, that can be done. 
+After writing the paper, we found the code in pilimit_orig difficult for re-use. Given its highly specific nature, here are many "gotcha's" that are hard to work around. We include this library so if someone else wants to double-check our paper or reproduce it exactly, that can be done. 
 
-Therefore, pilimit_lib is a rewrite of the library with an emphasis on reusing as many torch functions as possible, with heavier documentation. It's worth noting this library does *not* reproduce the main paper results exactly, mostly due to various floating point issues, but the results are essentially identical.
+Extending on pilimit_orig, pilimit_lib is a rewrite of the library with an emphasis on reusing as many torch classes and functions as possible, resulting in an easy-to-use library for creating infinite width pi-nets. 
+
+It's worth noting pilimit_lib does *not* reproduce the main paper results when using the same hyperparameters due to various floating point and rounding issues, but the results are essentially identical.
 
 # Roadmap
 
 Here are the things we are planning to add to the repo, in order of priority:
 
 - Document original repo
-  - transfer imagenet hparams, numbers
   - add comments and explanations to main testing/training/class files
-  - Updated FKR and transfer results
-  - Remove unnecessary files and any useless comments, add proper formatting in important files
-  - double-check command rerun for accuracy / upload saved .pkl version of each best model
+  - Remove unnecessary files and any useless comments
+  - Updated FKR  results
 - Document torch-style repo
-  - main testing/training file comments 
-  - caveats with .parameters, sgd, gclip, backward explanation, etc
+  - main testing/training file comments
+  - caveats with .parameters, sgd, gclip, backward explanation, etc and example usage writeup
+- Double-check command rerun for accuracy / upload saved .pkl version of each best model
 - Create easily usable pip package for pilimit_lib
 - Colab notebook for easy reproducibility

@@ -10,7 +10,7 @@ We would not recommend using this repo except to reproduce the results from the 
 
 [inf](inf) contains the implementation of the infinite and π-Net, the finite μ-Net, and NNGP/NTK kernels. It also contains π-Net specific mathematical functions, InfSGD, dynamically expanding arrays. and any other supporting π-Net infrastructure.
 
-[cifar10](cifar10), [imagenet](imagenet), and [meta](meta) contain the training and testing files for each of their respective tasks. 
+[cifar10](cifar10), [imagenet](imagenet), and [meta](meta) contain the training and testing files for each of their respective tasks. Each file has hyperparams for the command line. See below commands for example usage.
 
 [scans](scans) contains all of the files which were used for scanning and testing hyperparameters. These testing files are in a Microsoft-specific format so they are not useful for non-Microsoft employees, but they are kept for completeness.
 
@@ -52,6 +52,8 @@ This table contains all of the imagenet transfer hyperparameters with links to t
 | ------------- |---------| --| --| --| 
 | Transfer      |[61.84](#imagenet-munet) | [58.02](#imagenet-finpinet-r-200) | [59.36](#imagenet-finpinet-r-400) |  [64.39](#imagenet-infpinet-r-200) |
  
+# CIFAR10
+
 ## CIFAR10 NNGP
 
 python -m cifar10.cifar10test --varb 0 --depth 2   --kernel-reg 1e-4 --gp --float --batch-size 2000 --test-batch-size 2000  --save-dir "./output/"
@@ -73,6 +75,7 @@ python -m cifar10.cifar10infmlp --lr 0.5 --gclip-per-param --gclip 3.20 --lr-dro
 python -m cifar10.cifar10infmlp --lr 1.0 --gclip-per-param --gclip 0.4 --lr-drop-ratio 0.15 --lr-drop-milestones 40 --scheduler multistep --wd 0.00001 --r 400 --batch-size 8 --epochs 50 --width 0 --cuda --seed 0  --depth 2 --bias-alpha $bias_alpha --first-layer-lr-mult 0.1 --last-layer-lr-mult 4.0 --first-layer-alpha 1.0 --last-layer-alpha 0.5 --no-apply-lr-mult-to-wd --save-dir "./output/"
 
 
+# MAML
 
 
 ## MAML NNGP
@@ -85,7 +88,7 @@ python -m meta.train dataset --batch-size 8 --num-epochs 1 --scheduler multistep
 
 ## MAML MuNet
 
-python -m meta.train dataset --num-epochs 50 --meta-lr  4.0 --step-size 0.594604 --batch-size 14 --grad-clip 0.15 --meta-momentum 0 --bias-alpha  0.5 --first-layer-alpha  0.594604 --first-layer-lr-mult 0.4 --first-layer-init-alpha  0.840896 --second-layer-init-alpha 0.594604 --last-layer-lr-mult 0 --scheduler cosine --readout-zero-init --dataset omniglot --num-ways 5 --num-shots 1 --use-cuda --num-workers 2 --num-shots-test 1  --normalize None --hidden-size -1 --depth 2 --dtype float16 --num-batches 1000  --num-test-batches 500 --adapt-readout-only --mu-init  --output-folder  "./output/"
+python -m meta.train dataset --num-epochs 50 --meta-lr  4.0 --step-size 0.594604 --batch-size 8 --grad-clip 0.15 --meta-momentum 0 --bias-alpha  0.5 --first-layer-alpha  0.594604 --first-layer-lr-mult 0.4 --first-layer-init-alpha  0.840896 --second-layer-init-alpha 0.594604 --last-layer-lr-mult 0 --scheduler cosine --readout-zero-init --dataset omniglot --num-ways 5 --num-shots 1 --use-cuda --num-workers 2 --num-shots-test 1  --normalize None --hidden-size -1 --depth 2 --dtype float16 --num-batches 1000  --num-test-batches 500 --adapt-readout-only --mu-init  --output-folder  "./output/"
 
 ## MAML FinPiNet
 
@@ -96,10 +99,7 @@ python -m meta.train dataset --num-epochs 50 --meta-lr $meta_lr --step-size 0.25
 python -m meta.train dataset --num-epochs 50 --meta-lr 32.0 --step-size 0.353553 --batch-size 8 --grad-clip  0.1   --meta-momentum 0 --bias-alpha 1.414214 --first-layer-alpha 1.0 --first-layer-lr-mult 0.400000 --last-layer-lr-mult 0 --scheduler cosine --readout-zero-init --dataset omniglot --num-ways 5 --num-shots 1 --use-cuda --num-workers 2 --num-shots-test 1  --normalize None --hidden-size -1 --depth 2 --dtype float16 --num-batches 1000  --num-test-batches 500 --adapt-readout-only --Gproj-inner  --Gproj-outer  --infnet_r 400  --output-folder  "./output/"
 
 
-
-
-
-
+# Imagenet 
 
 
 ## Imagenet MuNet
@@ -122,4 +122,8 @@ Test with: epoch 31 reg 1e-3
 
 ## Imagenet InfPiNet r 200
 
-TODO: fill this out
+python -m imagenet.transfer_imagenet  --save-dir="./output/" --save-model --cuda --r 200 --lr=0.01 --batch-size=16 --gclip=0  --epochs=40 --human --wd=0.0001 --bias-alpha=0.5 --first-layer-lr-mult=1.0 --last-layer-lr-mult=1.0 --gclip-per-param 
+
+Test with: epoch 26 reg 1e-4
+
+Note: this will require a very large amount of GPU memory, 32GB, and a very large amount of disk memory (probably around 100GB because it saves every epoch, though only one epoch is really needed to keep around) to run. 
