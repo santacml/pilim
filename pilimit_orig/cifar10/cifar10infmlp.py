@@ -1,5 +1,3 @@
-# To add a new cell, type '# %%'
-# To add a new markdown cell, type '# %% [markdown]'
 # %%
 from inf.pimlp import *
 from inf.optim import InfSGD, InfMultiStepLR, MultiStepGClip
@@ -285,13 +283,6 @@ def main(arglst=None):
                     _last_layer_grad_no_alpha=args.last_layer_grad_no_alpha,
                     layernorm=args.layernorm,
                     arrbackend=CycArr if args.cycarr else DynArr, maxsize=10**6)
-
-  if args.init_from_data:
-    loader = torch.utils.data.DataLoader(trainset, batch_size=r,
-                                          shuffle=True, num_workers=2)
-    X = next(iter(loader))[0]
-    X = X.reshape(X.shape[0], -1)
-    infnet.initialize_from_data(X)
 
   mynet = None
   if args.width is None:

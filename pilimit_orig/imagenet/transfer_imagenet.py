@@ -20,9 +20,6 @@ import psutil
 import pickle
 import random
 
-num_cifar10_cls = 3
-# num_cifar10_cls = 10
-
 def main(arglst=None):
   parser = argparse.ArgumentParser(description='PyTorch training ensemble models',
                                   conflict_handler='resolve')
@@ -114,8 +111,6 @@ def main(arglst=None):
   parser.add_argument('--transfer-milestones', type=str, default='',
       help='comma-separated list of epoch numbers. Transfer kernel performance is evaluated at these steps.')
                       
-  # parser.add_argument('--zero-transfer-init', action='store_true',
-  #                     help='Initialize transfer net with 0 for output layer.')
 
   if arglst is None:
     args = parser.parse_args()
@@ -158,23 +153,21 @@ def main(arglst=None):
   #   n = random.randint(0,1000)
   #   if not (n in keep_cls): keep_cls.append(n)
 
-  # best run
+  # Some random classes to keep (all classes is too many)
   keep_cls = [294, 828, 241, 320, 210, 561, 67, 706, 956, 996, 490, 166, 287, 337, 726, 305, 688, 314, 195, 107, 433, 802, 717, 868, 697, 335, 127, 359, 101, 236, 558, 120, 249, 982, 888, 987, 944, 885, 547, 588, 498, 20, 778, 74, 658, 489, 428, 821, 151, 955, 776, 979, 389, 256, 126, 77, 27, 580, 750, 557, 758, 829, 275, 649, 11, 850, 784, 894, 153, 651, 769, 51, 5, 252, 650, 156, 771, 701, 161, 831, 723, 233, 484, 974, 554, 447, 246, 176, 28, 946, 272, 783, 160, 603, 104, 510, 69, 13, 366, 924, 369, 152, 612, 158, 324, 203, 845, 388, 667, 38, 75, 782, 482, 730, 684, 132, 253, 220, 448, 313, 623, 360, 570, 886, 640, 440, 700, 240, 643, 131, 963, 116, 283, 239, 830, 197, 841, 933, 459, 398, 408, 105, 984, 574, 259, 437, 362, 507, 391, 922, 58, 983, 596, 288, 642, 869, 568, 450, 88, 442, 480, 670, 826, 225, 560, 215, 403, 426, 772, 672, 976, 932, 330, 853, 25, 164, 686, 137, 421, 235, 50, 668, 273, 501, 609, 49, 64, 361, 801, 78, 791, 96, 304, 261, 102, 654, 962, 266, 798, 226, 998, 443, 222, 781, 870, 780, 427, 710, 889, 368, 31, 599, 297, 915, 377, 214, 415, 600, 890, 355, 977, 319, 282, 971, 943, 436, 497, 24, 586, 202, 787, 444, 634, 815, 861, 289, 945, 518, 907, 988, 46, 595, 880, 941, 449, 953, 786, 262, 939, 390]
 
   labels_to_keep = len(keep_cls)
-  labels_per_chunk = 1
-  # labels_to_keep = 20
   print("Keeping only labels:", keep_cls)
   trainset = remove_extra_cls_imagenet(trainset, keep_cls)
   
-  # trainset.train_labels = (targets / labels_per_chunk).astype(np.int).tolist()  # chunk labels
-# 
   train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
                                             shuffle=True, num_workers=8)
 
   trainset_transfer = datasets.CIFAR10(root=args.cifar_data, train=True,
                                           download=True, transform=transform)
   # use 3 classes of cifar10 for speed
+  # just makes training faster
+  # don't do this in full cifar10test
   trainset_transfer = remove_extra_cls_cifar10(trainset_transfer, [0,5,6])
   
   train_loader_transfer = torch.utils.data.DataLoader(trainset_transfer, batch_size=32,
@@ -183,8 +176,6 @@ def main(arglst=None):
   testset = ImageNet32(args.imagenet_data, train=False, transform=transform_imgnet)
   
   testset = remove_extra_cls_imagenet(testset, keep_cls)
-
-  # testset.val_labels = (targets / labels_per_chunk).astype(np.int).tolist()  # chunk in groups 
 
   test_loader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
                                           shuffle=False, num_workers=8)
@@ -312,9 +303,7 @@ def main(arglst=None):
   # rank of Z space
   r = args.r
   din = 32**2 * 3
-#   dout = 1000
-  # dout = 100
-  dout = int(labels_to_keep / labels_per_chunk)
+  dout = int(labels_to_keep)
   #
   infnet = InfPiMLP(d=din, dout=dout, L=L, r=r,
                     first_layer_alpha=args.first_layer_alpha,
@@ -323,19 +312,7 @@ def main(arglst=None):
                     bias_alpha=args.bias_alpha,
                     layernorm=args.layernorm,
                     resizemult=1.01,    # so that when this net gets very, very large, we only add .01*current size. will be slower but use max mem.
-                    # readout_zero_init = True,
-                    # cuda_batch_size=1000000,
-                    # switch to DynArr if don't want cyclic
                     arrbackend=CycArr if args.cycarr else DynArr, maxsize=10**6)
-
-  if args.init_from_data:
-    # raise NotImplementedError()
-    loader = torch.utils.data.DataLoader(trainset, batch_size=r,
-                                          shuffle=True, num_workers=2)
-    X = next(iter(loader))[0]
-    X = X.reshape(X.shape[0], -1)
-    infnet.initialize_from_data(X, dotest=False)
-
 
   width = args.width
 
@@ -358,9 +335,6 @@ def main(arglst=None):
     if not args.float:
       torch.set_default_dtype(torch.float16)
       mynet = mynet.half()
-    # if args.bias_lr_mult != 1 or args.first_layer_lr_mult != 1:
-      # import pdb; pdb.set_trace()
-      # raise NotImplementedError()
     paramgroups = []
     # first layer weights
     paramgroups.append({
@@ -379,7 +353,6 @@ def main(arglst=None):
       'params': [l.weight for l in mynet._linears[1:]],
     })
     optimizer = SGD(paramgroups, lr, weight_decay=wd)
-    # optimizer = SGD(mynet.parameters(), lr, weight_decay=wd)
 
   milestones = []
   if args.lr_drop_milestones:
@@ -416,8 +389,6 @@ def main(arglst=None):
   if args.resnet:
     print("TESTING USING RESNET38 - SOME ARGS MAY NOT WORK")
     infnet = None
-    # mynet = resnet38(250)
-    # mynet = resnet38(1000)
     mynet = resnet56(1000)
     if args.cuda:
       mynet.cuda()
@@ -432,6 +403,8 @@ def main(arglst=None):
   log_df = []
   transfer_df = []
 
+  # light kernel testing during training
+  # .001 usually gets good results
   # kernel_regs = [10**(-n) for n in range(1,7)]
   kernel_regs = [0.001]
   

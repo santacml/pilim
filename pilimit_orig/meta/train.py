@@ -147,13 +147,8 @@ def main(args, store, exp_id, get_all_outer_loss=False, timeit=False):
             if args.verbose:
                 print('multistep scheduler')
                 print('milestones', milestones)
-            # milestones = list(np.array([1, 2, 10, 100]) * args.num_batches / 2)
-            # milestones = list(np.arange(11, 100, 10) * args.num_batches)
-            # milestones = np.array([1,5, 11, 21, 31, 41, 51, 61, 71, 81, 91]) * args.num_batches
             sch = InfMultiStepLR(meta_optimizer, milestones=milestones, gamma=args.lr_drop_ratio)
-        # if not args.first_order and not args.adapt_readout_only:
-            
-        # assert not args.adapt_readout_only, 'Not Implemented'
+
         metalearner = InfMAML(benchmark.model,
                             meta_optimizer,
                             first_order=args.first_order,
@@ -171,16 +166,10 @@ def main(args, store, exp_id, get_all_outer_loss=False, timeit=False):
                             Gproj_inner=args.Gproj_inner,
                             Gproj_outer=args.Gproj_outer)
     else:
-        # if readout_fixed_at_zero:
-        #     raise NotImplementedError('readout_fixed_at_zero not yet implemented for finnet')
         if args.verbose:
             print(benchmark.model)
-        parameters = benchmark.model.parameters()
         if args.train_last_layer_only:
             raise NotImplementedError("have't gone through this branch for a while; check for correctness and infnet counterpart")
-            if args.verbose:
-                print('training last layer only')
-            parameters = benchmark.model.classifier.parameters()
         if args.gp or args.ntk:
             if args.optimizer == 'sgd':
                 meta_optimizer = torch.optim.SGD(benchmark.model.parameters(), lr=args.meta_lr, momentum=args.meta_momentum)
@@ -223,12 +212,6 @@ def main(args, store, exp_id, get_all_outer_loss=False, timeit=False):
             if args.verbose:
                 print('multistep scheduler')
                 print('milestones', milestones)
-            # # milestones = np.arange(1, 100, 8) * args.num_batches
-            # milestones = list(np.array([1, 5]) * args.num_batches)
-            # # milestones += list(np.arange(11, 100, 8) * args.num_batches)
-            # milestones += list(np.arange(11, 51, 20) * args.num_batches)
-            # milestones += list(np.arange(51, 100, 5) * args.num_batches)
-            # # milestones = np.array([1,5, 11, 21, 31, 41, 51, 61, 71, 81, 91]) * args.num_batches
             sch = torch.optim.lr_scheduler.MultiStepLR(meta_optimizer, milestones=milestones, gamma=args.lr_drop_ratio)
         meta_optimizer = GClipWrapper(meta_optimizer, benchmark.model, args.grad_clip, args.gclip_per_param, args.last_layer_lr_mult==0)
         benchmark.model.no_adapt_readout = args.no_adapt_readout
@@ -243,8 +226,6 @@ def main(args, store, exp_id, get_all_outer_loss=False, timeit=False):
         if args.second_layer_init_alpha != 1:
             benchmark.model.linears[2].weight.data *= args.second_layer_init_alpha
 
-        # if args.gclip_per_param:
-        #     raise NotImplementedError('check impl')
         metalearner = ModelAgnosticMetaLearning(
             benchmark.model,
             meta_optimizer,

@@ -1,3 +1,8 @@
+
+# shamelessly stolen from: https://github.com/ActiveVisionLab/BNInterpolation/blob/master/imagenet32_dataset.py
+
+
+
 import sys, os
 import numpy as np
 import argparse
@@ -27,7 +32,6 @@ _val_list = ['val_data']
 _label_file = 'map_clsloc.txt'
 
 
-# from: https://github.com/ActiveVisionLab/BNInterpolation/blob/master/imagenet32_dataset.py
 class ImageNet32(Dataset):
     """`ImageNet32 <https://patrykchrabaszcz.github.io/Imagenet32/>`_ dataset.
     Warning: this will load the whole dataset into memory! Please ensure that

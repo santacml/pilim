@@ -10,6 +10,8 @@ We would not recommend using this repo except to reproduce the results from the 
 
 [inf](inf) contains the implementation of the infinite and π-Net, the finite μ-Net, and NNGP/NTK kernels. It also contains π-Net specific mathematical functions, InfSGD, dynamically expanding arrays. and any other supporting π-Net infrastructure.
 
+The file pimlp.py defines the infinite and finite width networks. However, if this file is called directly (i.e. python -m inf.pimlp) it will create a very tiny infinite-width MLP and run it on a dummy data sample. This is useful for testing and getting a "feel" for the network.
+
 [cifar10](cifar10), [imagenet](imagenet), and [meta](meta) contain the training and testing files for each of their respective tasks. Each file has hyperparams for the command line. See below commands for example usage.
 
 [scans](scans) contains all of the files which were used for scanning and testing hyperparameters. These testing files are in a Microsoft-specific format so they are not useful for non-Microsoft employees, but they are kept for completeness.

@@ -25,15 +25,52 @@ def divbystd(x):
   return x / (1e-5 + torch.norm(x, dim=1, keepdim=True))
 
 class FinPiMLP(nn.Module):
-  '''
-  Note:
-  This network is designed so that the (pre)activations have coordinates
-  of order width^-1/2, so that no input/output multipliers are needed.
-  This means for normalization layers, we need to divide by width^1/2.
-  '''
+  def __init__(
+      self, 
+      datadim, 
+      width, 
+      ncls, 
+      L, 
+      bias_alpha=0, 
+      last_bias_alpha=None, 
+      nonlin=nn.ReLU, 
+      device='cpu', 
+      lincls=MyLinear,
+      first_layer_alpha=1, 
+      last_layer_alpha=1, 
+      layernorm=False):
+    '''
+    This class creates a L+1 (for output) layer Finite-width Pi-MLP as specified in our paper: https://openreview.net/forum?id=tUMr0Iox8XW
 
-  def __init__(self, datadim, width, ncls, L, bias_alpha=0, last_bias_alpha=None, nonlin=nn.ReLU, device='cpu', lincls=MyLinear,
-      first_layer_alpha=1, last_layer_alpha=1, layernorm=False):
+    This class is mostly compatible with pytorch functions (i.e. forward, backward, step),
+    however, Gproj is a necessary function to project the gradient into r-space
+    like the infinite-width network does.
+
+    It is highly recommended to not use this class directly, 
+    but instead to create an InfPiMLP and sample it,
+    as this class isn't really anything special on its own
+    and will in fact have issues without infnet initialization.
+
+    See the sample() function in InfPiMLp
+
+    Inputs:
+      datadim: which dimension data is on.
+      width: width of network
+      ncls: dim of output
+      L: number of hidden layers
+      bias_alpha: scalar to multiply to bias  
+      last_bias_alpha: different scalar to multiply to bias of last layer
+      nonlin: nonlinearity to use (we only ever do ReLU)
+      device: torch device to use
+      lincls: custom linear layer (for bias alpha)
+      first_layer_alpha: scalar to multiply to layer outputs
+      last_layer_alpha: different scalar to multiply to last layer outptus
+      layernorm: use layernorm in between layers (not used in paper)
+    Note:
+      This network is designed so that the (pre)activations have coordinates
+      of order width^-1/2, so that no input/output multipliers are needed.
+      This means for normalization layers, we need to divide by width^1/2.
+    '''
     super().__init__()
     self.datadim = datadim
     self.width = width
@@ -49,11 +86,9 @@ class FinPiMLP(nn.Module):
     self.bias_alpha = bias_alpha
     if last_bias_alpha is None:
       last_bias_alpha = bias_alpha
-    # elif last_bias_alpha != bias_alpha:
-    #   raise NotImplementedError("this branch is a bit stale; check that it's implemented for finnet/maml/cifar10")
     self.last_bias_alpha = last_bias_alpha
-    # _linears is used purely to register modules
     self._linears = nn.ModuleList()
+    
     for l in range(1, L+2):
       if l == 1:
         self.linears[l] = lincls(datadim, width, bias=bias, bias_alpha=bias_alpha, device=self.device)
@@ -63,7 +98,19 @@ class FinPiMLP(nn.Module):
         self.linears[l] = lincls(width, width, bias=bias, bias_alpha=bias_alpha, device=self.device)
       self._linears.append(self.linears[l])
 
-  def initialize(self, infnet, keepomegas=False, tieomegas=False):
+  def initialize(
+      self, 
+      infnet, 
+      keepomegas=False, 
+      tieomegas=False):
+    '''
+    Initialize from an infnet.
+
+    Inputs:
+      infnet: the infnet to initialize from
+      keepomegas: whether to maintain current omegas or not
+      tieomegas: keep omegas the same across layers (for debugging/testing - don't use this)
+    '''
     L = infnet.L
     self.r = r = infnet.r
     self.first_layer_alpha = infnet.first_layer_alpha
@@ -75,6 +122,8 @@ class FinPiMLP(nn.Module):
     Bs = {l: B.a for l, B in infnet.Bs.items()}
     biases = infnet.biases
     dtype = infnet.As[2].a.dtype
+
+    # initialize omegas and projection operators
     if not keepomegas:
       self.omegas = omegas = {}
       self.Gcovinvs = {}
@@ -90,6 +139,7 @@ class FinPiMLP(nn.Module):
     else:
       omegas = self.omegas
     
+    # initialize weight matrices using omegas, infnet A/B
     with torch.no_grad():
       for l in range(1, L+2):
         if l == 1:
@@ -105,9 +155,11 @@ class FinPiMLP(nn.Module):
             self.linears[l].bias[:] = n**-0.5 * omegas[l] @ biases[l].to(dtype)
     
   def Gproj(self):
+    '''
+    Project the gradient into r-space as specified in the paper.
+    '''
     if self.r >= self.width:
       return
-    # import pdb; pdb.set_trace()
     with torch.no_grad():
       for l in range(1, self.L+1):
         grad = self.linears[l].weight.grad
@@ -117,6 +169,9 @@ class FinPiMLP(nn.Module):
           self.linears[l].bias.grad[:] = om @ (self.Gcovinvs[l] @ (om.T @ self.linears[l].bias.grad))
 
   def cuda(self):
+    '''
+    Put network on cuda (only works in 1-gpu environments).
+    '''
     if hasattr(self, 'omegas'):
       for l in range(1, self.L+1):
         self.omegas[l] = self.omegas[l].cuda()
@@ -124,15 +179,27 @@ class FinPiMLP(nn.Module):
     return super().cuda()
 
   def half(self):
+    '''
+    Convert network to fp16.
+    '''
     if hasattr(self, 'omegas'):
       for l in range(1, self.L+1):
         self.omegas[l] = self.omegas[l].half()
         self.Gcovinvs[l] = self.Gcovinvs[l].half()
     return super().half()
   
-  def forward(self, x, save_kernel_output=False):
+  def forward(
+      self, 
+      x, 
+      save_kernel_output=False):
+    '''
+    Give an input to the network
+
+    Inputs:
+      x: input
+      save_kernel_output: whether to save the penultimate outputs for feature kernel creation
+    '''
     L = self.L
-    # import pdb; pdb.set_trace()
     for l in range(1, L+1):
       nonlin = self.nonlin
       if self.layernorm:
@@ -141,10 +208,6 @@ class FinPiMLP(nn.Module):
         x = nonlin(self.first_layer_alpha * self.linears[l](x))
       else:
         x = nonlin(self.linears[l](x))
-    # if save_kernel_output:
-      # self.kernel_output = x.clone()
-    # x = self.linears[L+1](x) * self.last_layer_alpha
-    # return x
     
     if save_kernel_output:
       kernel_output = x.clone()
@@ -173,15 +236,52 @@ class FinPiMLP(nn.Module):
           self.Gcovinvs[l] = torch.inverse(self.omegas[l].T.float() @ self.omegas[l].float()).type_as(self.omegas[l])
 
 class InfPiMLP():
-  def __init__(self, d, dout, L, r, initsize=None, initbuffersize=None, maxsize=10000, quiet=False, device='cpu', arrbackend=DynArr, bias_alpha=0, last_bias_alpha=None, first_layer_alpha=1, last_layer_alpha=1,
-  layernorm=False, readout_zero_init=False, _last_layer_grad_no_alpha=False, resizemult=2):
+  def __init__(
+      self, 
+      d, 
+      dout, 
+      L, 
+      r, 
+      initsize=None, 
+      initbuffersize=None, 
+      maxsize=10000, 
+      quiet=False, 
+      device='cpu', 
+      arrbackend=DynArr, 
+      bias_alpha=0, 
+      last_bias_alpha=None, 
+      first_layer_alpha=1, 
+      last_layer_alpha=1,
+      layernorm=False, 
+      readout_zero_init=False, 
+      _last_layer_grad_no_alpha=False, 
+      resizemult=2):
     '''
+    This class creates a L+1 (for output) layer Infinite-width Pi-MLP as specified in our paper: https://openreview.net/forum?id=tUMr0Iox8XW
+
+    The Pi-MLP cannot be trained using normal pytorch functions and does not contain pytorch layers.
+    Instead, we implement custom forward, backward, gclip, and step functions. 
+    Please see cifar10mlp.py for example usage.
+
     Inputs:
       d: dim of input
       dout: dim of output
       L: number of hidden layers
       r: rank of probability space
+      initsize: initial size of matrix to use
       initbuffersize: initial M
+      maxsize: maximum size for cyclic array (deprecated)
+      quiet: don't print comments
+      device: torch device to use
+      arrbackend: using dynamic array or cyclic array (deprecated)
+      bias_alpha: scalar to multiply to bias  
+      last_bias_alpha: different scalar to multiply to bias of last layer
+      first_layer_alpha: scalar to multiply to layer outputs
+      last_layer_alpha: different scalar to multiply to last layer outptus
+      layernorm: use layernorm in between layers (not used in paper)
+      readout_zero_init: initialize last layer with 0s
+      _last_layer_grad_no_alpha: don't use alpha on last layer's gradient (for testing)
+      resizemult: how much to increase the isze of the dynamic arrays when necessary
     '''
     self.d = d
     self.dout = dout
@@ -200,6 +300,10 @@ class InfPiMLP():
     if last_bias_alpha is None:
       last_bias_alpha = bias_alpha
     self.last_bias_alpha = last_bias_alpha
+
+    # As, Bs, dAs, and dBs are all stored in these dictionaries for the network
+    # Amult is an important array that stores learning rate and momentum as fp32 instead of fp16
+    # without Amult, floating point errors would accumulate 
     self.As = {}  # infnet is parameterized by A: (L x d x r), B: (L x d x r)
     self.Bs = {}
     self.Amult = {}
@@ -207,10 +311,10 @@ class InfPiMLP():
     self.dBs = {}
     self.As[1] = torch.randn(d, r, device=device).float() / d**0.5
     self.dAs[1] = torch.zeros(d, r, device=device)
-    # lastlayerbuffersize = initbuffersize
-    # lastlayerinitsize = initsize
+    
     lastlayerbuffersize = 1 if readout_zero_init else initbuffersize
     lastlayerinitsize = 1 if readout_zero_init else initsize
+
     for l in range(2, L+2):
       self.Bs[l] = arrbackend(r, initsize=lastlayerinitsize if l == L+1 else initsize,
           initbuffersize=lastlayerbuffersize if l == L+1 else initbuffersize,
@@ -223,6 +327,7 @@ class InfPiMLP():
     self.As[L+1] = arrbackend(dout, initsize=lastlayerinitsize, initbuffersize=lastlayerbuffersize, maxsize=maxsize, resizemult=resizemult, device=device)
     self.Amult[L+1] = arrbackend(None, initsize=lastlayerinitsize, initbuffersize=lastlayerbuffersize, maxsize=maxsize, resizemult=resizemult, device=device).float()
     self.dAs[L+1] = []
+
     self.biases = None
     self.dbiases = None
     if bias:  # biases are parameterized like (L x r) and (1 x dout) for the last layer
@@ -236,9 +341,9 @@ class InfPiMLP():
     self.initialize(quiet, readout_zero_init=readout_zero_init)
 
   def initialize_from_data(self, X, sigma=2**0.5, dotest=True):
-    # X has shape (B, d)
-    # we need r == M == B
-    # import pdb; pdb.set_trace()
+    '''
+    This was an alternate initialization method we attempted - did not end up getting used.
+    '''
     assert self.r == self.initsize == X.shape[0]
     d = X.shape[1]
     Sigmas = [X @ X.T / d]
@@ -248,9 +353,7 @@ class InfPiMLP():
       Sigmas.append(VReLUmatrix(sigma**2 * Sigmas[-1]))
       Ds.append(torch.diag(Sigmas[-1])**0.5)
       Us.append(torch.cholesky(Sigmas[-1], upper=True))
-      # print((Us[-1].T @ Us[-1] - Sigmas[-1]).norm())
 
-    # might need regularization in the inverse
     self.As[1][:] = sigma * X.T @ torch.inverse(Sigmas[0]) @ Us[0].T / d
     
     for l in range(2, self.L+1):
@@ -266,6 +369,9 @@ class InfPiMLP():
         assert (std < 2e-4), f'error std is {std}'
 
   def initialize(self, quiet=True, readout_zero_init=False):
+    '''
+    Initialize the matrices in the network as specified in the paper.
+    '''
     if self.d == self.r == self.initsize:
       if not quiet:
         print('init with identity')
@@ -298,9 +404,15 @@ class InfPiMLP():
           self.As[l].a.mul_(self.As[l].size**-0.5)
   
   def parameters(self):
+    '''
+    Obtain the raw array parameters from the model.
+    '''
     return [self.As[l].arr if l > 1 else self.As[l] for l in range(1, self.L+1)] + [self.Bs[l].arr for l in range(2, self.L+1)]
     
   def zero_grad(self):
+    '''
+    Delete the stored gradient for the network.
+    '''
     self.dAs[1].zero_()
     for l in range(2, self.L+2):
       self.dBs[l] = []
@@ -310,6 +422,9 @@ class InfPiMLP():
         v.zero_()
 
   def zero_readout_grad(self):
+    '''
+    Delete only the readout gradient for the network.
+    '''
     L = self.L
     for d in list(self.dAs[L+1]) + list(self.dBs[L+1]):
       d.zero_()
@@ -318,17 +433,22 @@ class InfPiMLP():
         d.zero_()
 
   def checkpoint(self):
+    '''
+    Checkpoint all of the parameters in the network.
+    '''
     with torch.no_grad():
       self.A1_chkpt = self.As[1].clone()
       if self.biases is not None:
         self.biases_chkpt = {k: v.clone() for k, v in self.biases.items()}
-        # deepcopy(self.biases)
     for l in range(2, self.L+2):
       self.As[l].checkpoint()
       self.Amult[l].checkpoint()
       self.Bs[l].checkpoint()
 
   def restore(self):
+    '''
+    Restore all of the parameters in the network from the latest checkpoint.
+    '''
     self.As[1][:] = self.A1_chkpt
     for l in range(2, self.L+2):
       self.As[l].restore()
@@ -339,6 +459,9 @@ class InfPiMLP():
         self.biases[l][:] = self.biases_chkpt[l]
 
   def cuda(self):
+    '''
+    Convert the network to cuda (only works in 1-gpu environments).
+    '''
     self.device = 'cuda:0'
     self.As[1] = self.As[1].cuda()
     self.dAs[1] = self.dAs[1].cuda()
@@ -354,6 +477,9 @@ class InfPiMLP():
     return self
 
   def cpu(self):
+    '''
+    Convert the network to cpu.
+    '''
     self.device = 'cpu'
     self.As[1] = self.As[1].cpu()
     self.dAs[1] = self.dAs[1].cpu()
@@ -368,11 +494,17 @@ class InfPiMLP():
     return self
 
   def half(self):
+    '''
+    Convert the network to fp16.
+    Only converts As and Bs, Amult and bias need to be fp32.
+    '''
     self.As[1] = self.As[1].half()
     self.dAs[1] = self.dAs[1].half()
     for l in range(2, self.L+2):
       self.As[l] = self.As[l].half()
       self.Bs[l] = self.Bs[l].half()
+
+    # bias needs to be fp32
     # if self.biases is not None:
     #   for l in range(1, self.L+2):
     #     self.biases[l] = self.biases[l].half()
@@ -380,6 +512,9 @@ class InfPiMLP():
     return self
   
   def float(self):
+    '''
+    Converts the network to fp32.
+    '''
     self.As[1] = self.As[1].float()
     self.dAs[1] = self.dAs[1].float()
     for l in range(2, self.L+2):
@@ -389,20 +524,25 @@ class InfPiMLP():
     return self
 
   def __call__(self, X, doreshape=True):
+    '''
+    Give an input to the network.
+    '''
     return self.forward(X, doreshape=doreshape)
 
   def forward(self, X, doreshape=True):
     '''
+    Give an input to the network and calculate the forward pass.
+    Note this will save various intermediate outputs for backpropogation purposes (gs, ss, qs).
+
+    There will be minimal comments in this function. For a more in-depth explanation, see pilimit_lib.
+
     Input:
       X: (batch, inputdim)
+      doreshape: flatten the last dimension
     Output:
       output of network
     '''
     
-    # global counter
-    # global counterlist
-    # global endcounter
-
     if doreshape:
       self.X = X = X.reshape(X.shape[0], -1)
     else:
@@ -415,16 +555,8 @@ class InfPiMLP():
       self.gs[1] += self.bias_alpha * self.biases[1].type_as(X)
     self.gs[1] *= self.first_layer_alpha
     self.ss = {}
+
     L = self.L
-    # if counter == 2:
-      # import pdb; pdb.set_trace()
-      # self.As[2].size -= 5
-      # self.Amult[2].size -= 5
-      # self.Bs[2].size -= 5
-      # size = self.As[2].size
-      # self.As[2].a[size:] = 0
-      # self.Amult[2].a[size:] = 0
-      # self.Bs[2].a[size:] = 0
     for l in range(2, L+2):
       # (B, 1)
       self.ss[l-1] = self.gs[l-1].norm(dim=1, keepdim=True)
@@ -432,56 +564,29 @@ class InfPiMLP():
       self.gbars[l-1] = self.gs[l-1] / self.ss[l-1]
       # (B, M)
       self.qs[l] = self.gbars[l-1] @ self.Bs[l].a.T
-      # if counter == 2 and l == 3:
-      #   # import pdb; p
-      #   torch.save(self.qs[l], 'q3.th')
-      #   torch.save(self.gbars[l-1], 'gbar2.th')
-      #   torch.save(self.Bs[l], 'B3.th')
-        # print('\tgbar2', self.gbars[2][0, 0].item(), self.gbars[2].norm(p=1).item())
-        # print('\tq3', self.qs[l][0, 0].item(), self.qs[l].norm(p=1).item())
-        # print('\tB3', self.Bs[l].a[0, 0].item(), self.Bs[l].a.norm(p=1).item())
       if self.layernorm:
         s = 1
       else:
         s = self.ss[l-1]
       # (B, r) or (B, dout)
+
       self.gs[l] = (
           F00ReLUsqrt(self.qs[l], 1, s)
           * self.Amult[l].a.type_as(self.qs[l])
           ) @ self.As[l].a
       if self.biases is not None:
         if l == L+1:
-          # # if counter == 3:
-          # #   import pdb; pdb.set_trace()
-          # print('forwarding')
-          # print('q3', self.qs[l][0, 0].item())
-          # print('A3', self.As[3].a.norm(p=1).item())
-          # print('B3', self.Bs[3].a.norm(p=1).item())
           self.gs[l] += self.last_bias_alpha * self.biases[l].type_as(X)
         else:
           self.gs[l] += self.bias_alpha * self.biases[l].type_as(X)
     self.out = self.gs[L+1] * self.last_layer_alpha
-    # self.out.requires_grad_()
-    # self.out.retain_grad()
-
-    # counter += 1
-    # 244 ok, 245 bad
-    # if counter in counterlist:
-    #   print('counter', counter)
-    #   for k, v in self.gs.items():
-    #     print(f'g{k}', v.norm().item(), v.norm(p=1).item(), v.mean().item())
-    #   for k, v in self.gbars.items():
-    #     print(f'gbar{k}', v.norm().item(), v.norm(p=1).item(), v.mean().item())
-    #   # print('ss1', self.ss[1].norm().item())
-    #   # print('ss2', self.ss[2].norm().item())
-    #   # print('q2', self.qs[2].norm().item())
-    #   # print('q3', self.qs[3].norm().item())
-    #   # print('out', self.out.norm().item())
-    # if counter == endcounter:
-    #   import sys; sys.exit()
+    
     return self.out
 
   def save_intermediate(self, out_grad):
+    '''
+    Save intermediate outputs from the network for MAML purposes.
+    '''
     self.X_ = self.X
     self.gs_ = self.gs
     self.gbars_ = self.gbars
@@ -491,6 +596,9 @@ class InfPiMLP():
     self.out_grad_ = out_grad
 
   def del_intermediate(self):
+    '''
+    Delete saved intermediate outputs for the network.
+    '''
     del self.X_
     del self.gs_
     del self.gbars_
@@ -500,6 +608,9 @@ class InfPiMLP():
     del self.out_grad_
 
   def readout_backward(self, delta, buffer=None):
+    '''
+    Perform gradient backward for only the readout (last) layer.
+    '''
     # accumulate gradients
     dAs = self.dAs
     dBs = self.dBs
@@ -519,13 +630,13 @@ class InfPiMLP():
     dBs[L+1].append(self.gbars[L])
     if self.dbiases is not None:
       dbiases[L+1] += self.last_bias_alpha * self.last_layer_alpha * delta.sum(dim=0)
-    # import pdb; pdb.set_trace()
 
   def backward_somaml(self, delta, buffer=None, readout_fixed_at_zero=False):
     '''
     Input:
       delta: (batch, dout) loss derivative
       buffer: Used for metalearning. If not None, then backprop into `buffer` instead. Should be a pair (dAs, dBs), as returned by `newgradbuffer`.
+      readout_fixed_at_zero: no gradient after readout if they are 0
     '''
     # first order backward
     self.backward(delta, buffer=buffer)
@@ -555,36 +666,9 @@ class InfPiMLP():
                 self.out_grad_,
                 [self.out_],
                 c)[0].detach()
-    # import pdb; pdb.set_trace()
-    # print('dbias', [b.norm().item() for b in buffer[2].values()])
-    # print('dA1', buffer[0][1].norm().item())
-    # print('dA2', [a.norm().item() for a in buffer[0][2]])
-    # # print('dA3', [a.norm().item() for a in buffer[0][3]])
-    # print('dB2', [a.norm().item() for a in buffer[1][2]])
     self._backward(delta2, buffer=buffer,
                   gbars=self.gbars_, ss=self.ss_, gs=self.gs_, qs=self.qs_,
                   X=self.X_)
-    # import pdb; pdb.set_trace()
-    # print('\tdbias', [b.norm().item() for b in buffer[2].values()])
-    # print('\tdA1', buffer[0][1].norm().item())
-    # print('\tdA2', [a.norm().item() for a in buffer[0][2]])
-    # # print('dA3', [a.norm().item() for a in buffer[0][3]])
-    # print('\tdB2', [a.norm().item() for a in buffer[1][2]])
-  
-    # global counter
-    # global counterlist, endcounter
-    # if counter in counterlist:
-    #   print('backward')
-    #   print('dA1', self.dAs[1].norm().item())
-    #   print('dA2', [a.norm().item() for a in self.dAs[2]])
-    #   print('dA3', [a.norm().item() for a in self.dAs[3]])
-    #   print('dB2', [a.norm().item() for a in self.dBs[2]])
-    #   print('dB3', [a.norm().item() for a in self.dBs[3]])
-    #   print('db1', self.dbiases[1].norm().item())
-    #   print('db2', self.dbiases[2].norm().item())
-    #   print('db3', self.dbiases[3].norm().item())
-    # if counter == endcounter:
-    #   import sys; sys.exit()
 
   def _backward_somaml(self, delta, buffer=None):
     '''
@@ -596,11 +680,12 @@ class InfPiMLP():
 
   def backward(self, delta, buffer=None):
     '''
+    Call backwards.
+
     Input:
       delta: (batch, dout) loss derivative
       buffer: Used for metalearning. If not None, then backprop into `buffer` instead. Should be a pair (dAs, dBs), as returned by `newgradbuffer`.
     '''
-    # import pdb; pdb.set_trace()
     self._backward(delta, buffer)
 
   def _backward(self, delta, buffer=None,
@@ -608,6 +693,11 @@ class InfPiMLP():
                 As=None, Bs=None, X=None,
                 somaml=False):
     '''
+    Perform backpropogation on the infinite-width network. 
+    Note that this requires the saved items from the forward pass (gs, ss, qs).
+
+    There will be minimal comments in this function. For a more in-depth explanation, see pilimit_lib.
+
     Input:
       delta: (batch, dout) loss derivative
       buffer: Used for metalearning. If not None, then backprop into `buffer` instead. Should be a pair (dAs, dBs), as returned by `newgradbuffer`.
@@ -633,8 +723,7 @@ class InfPiMLP():
       Bs = self.Bs
     if X is None:
       X = self.X
-    # Below, B is test batch and B' was train batch for 2nd order maml
-    # but they are the same for normal SGD
+
     # (B, M)
     if not somaml:
       self.dgammas[L+1] = delta @ As[L+1].a.T \
@@ -690,6 +779,8 @@ class InfPiMLP():
       if l > 2:
         self.dgammas[l-1] = self._dAs[l-1] @ As[l-1].a.T \
             * self.Amult[l-1].a.type_as(delta)
+
+    
     # accumulate gradients
     dAs = self.dAs
     dBs = self.dBs
@@ -725,6 +816,9 @@ class InfPiMLP():
         dbiases[L+1] += self.last_bias_alpha * self.last_layer_alpha * delta.sum(dim=0)
 
   def newgradbuffer(self):
+    '''
+    Create new gradient buffers for MAML.
+    '''
     dAs = {1: torch.zeros_like(self.dAs[1])}
     dBs = {}
     for l in range(2, self.L+2):
@@ -738,6 +832,9 @@ class InfPiMLP():
     return dAs, dBs
 
   def resetbuffer(self, buffer):
+    '''
+    Reset the gradient buffer for MAML.
+    '''
     dAs = buffer[0]
     dBs = buffer[1]
     dAs[1].zero_()
@@ -751,10 +848,38 @@ class InfPiMLP():
       return dAs, dBs, dbiases
     return dAs, dBs
 
-  def step(self, lr, wd=0, buffer=None, momentum=0, dampening=0,
-          bias_lr_mult=1, first_layer_lr_mult=1,
-          last_layer_lr_mult=1,
-          apply_lr_mult_to_wd=True):
+  def step(
+    self,
+    lr,
+    wd=0, 
+    buffer=None, 
+    momentum=0, 
+    dampening=0,
+    bias_lr_mult=1, 
+    first_layer_lr_mult=1,
+    last_layer_lr_mult=1,
+    apply_lr_mult_to_wd=True):
+    '''
+    Perform a gradient descent step on the Pi-Net.
+
+    Note this first requires doing a forwards and backwards pass to store the dAs and dBs, 
+    which are gradient updates for A and B matrices.
+    
+    Amult only stores the learning rate and momentum in fp32 format.
+
+    There will be minimal comments in this function. For a more in-depth explanation, see pilimit_lib.
+
+    Inputs:
+      lr: learning rate
+      wd: weight decay
+      buffer: buffered gradients for MAML
+      momentum: momentum
+      dampening: dampening (not used in paper)
+      bias_lr_mult: extra learning rate multiplier for bias
+      first_layer_lr_mult: extra learning rate multiplier for the first layer
+      last_layer_lr_mult: extra learning rate multiplier for the last layer
+      apply_lr_mult_to_wd: whether to apply the learning rate multipliers to weight decay
+    '''
     
       
     dAs = self.dAs
@@ -776,12 +901,12 @@ class InfPiMLP():
             self.Vmult[l].a[:] = 0
           else:
             self.Vmult[l].a[:] = wd
-          # self.Vmult[l].a[:self.initsize] = 0
         self.A1V = torch.zeros_like(self.As[1])
       if self.biases is not None and not hasattr(self, 'biasesV'):
         self.biasesV = {}
         for l in range(1, self.L+2):
           self.biasesV[l] = torch.zeros_like(self.biases[l])
+      
       # TODO: implement nesterov
       self.A1V.mul_(momentum).add_(dAs[1] + self.As[1] * wd,
                                     alpha=1-dampening)
@@ -791,17 +916,15 @@ class InfPiMLP():
         if wd > 0:
           self.Vmult[l].a[:] += self.Amult[l].a * wd * (1 - dampening)
         mult = last_layer_lr_mult if l == self.L+1 else 1
-        # if l == self.L+1:
-        #   import pdb; pdb.set_trace()
         if mult == 0:
           continue
+
         # update existing Amult
         self.Amult[l].a[:] -= lr * mult * self.Vmult[l].a
         # update new grads
         self.As[l].cat(*dAs[l])
         for i, m in enumerate([self.Vmult[l], self.Amult[l]]):
           m.cat(
-            # (-1)**i * lr * mult * 
             (1 if i == 0 else -lr * mult)
             * (1 - dampening) * 
             torch.ones(sum(a.shape[0] for a in dAs[l]),
@@ -828,8 +951,6 @@ class InfPiMLP():
           else:
             factor = 1 - lr * wd
           self.Amult[l].a[:] *= factor
-          # A = self.As[l].a
-          # A[:] *= factor
         # NOTE: earlier results didn't do wd for biases
         # TODO: option for turning off wd for biases
         if self.biases is not None:
@@ -841,11 +962,8 @@ class InfPiMLP():
       for l in range(2, self.L+2):
         mult = last_layer_lr_mult if l == self.L+1 else 1
         if mult == 0:
-          # print(self.Amult[l].a.norm().item())
-          # print(len(self.Amult[l].arr), self.Amult[l].size)
           continue
-        #   # import pdb; pdb.set_trace()
-        # torch.manual_seed(0)
+          
         self.As[l].cat(*dAs[l])
         self.Amult[l].cat(
           -lr * mult * torch.ones(sum(a.shape[0] for a in dAs[l]),
@@ -857,12 +975,21 @@ class InfPiMLP():
           self.biases[l] -= lr * bias_lr_mult * dbiases[l]
 
   def train(self):
+    '''
+    Necessary blank function for pytorch.
+    '''
     pass
 
   def eval(self):
+    '''
+    Necessary blank function for pytorch.
+    '''
     pass
 
   def to(self, device):
+    '''
+    Cast to device
+    '''
     if 'cpu' in device.type:
       self.cpu()
     else:
@@ -870,6 +997,9 @@ class InfPiMLP():
     return self
   
   def wnorms(self):
+    '''
+    Weight norms (deprecated).
+    '''
     raise NotImplementedError('need to implement Amult')
     As = self.As
     Bs = self.Bs
@@ -884,6 +1014,9 @@ class InfPiMLP():
     return norms
 
   def gnorms(self, buffer=None):
+    '''
+    Gradient norms (for gradient clipping).
+    '''
     dAs = self.dAs
     dBs = self.dBs
     dbiases = self.dbiases
@@ -902,13 +1035,24 @@ class InfPiMLP():
     return norms
 
   def gnorm(self, buffer=None, exclude_last_layer=False):
+    '''
+    Gradient norm accumulation (for gradient clipping).
+    '''
     gnorms = self.gnorms(buffer)
     if exclude_last_layer:
       del gnorms[f'weight.{self.L+1}']
-    # print(gnorms)
     return sum(n**2 for n in gnorms.values())**0.5
 
   def gclip(self, norm, buffer=None, per_param=False, exclude_last_layer=False):
+    '''
+    Gradient clipping.
+
+    Input:
+      norm: the norm to clIp to
+      buffer: used for metalearning.
+      per_param: whether to clip each param individually or clip all params at once.
+      exclude_last_layer: whether to exclude the last layer from gradient clipping.
+    '''
     if per_param:
       gnorms = self.gnorms(buffer)
       dAs = self.dAs
@@ -944,6 +1088,18 @@ class InfPiMLP():
           dbiases[l] *= ratio
 
   def sample(self, width, fincls=FinPiMLP, tieomegas=False):
+    '''
+    Sample a finite network from this infinite-width network.
+
+    This can be used any time, but generally we use thisat initialization,
+    so we can see the finite networks approach infinite width throughout training
+
+    Input:
+      width: the size of the finite-width network
+      fincls: the finite-width network class to use
+      tieomegas: whether to use different omegas per layer (for debugging/testing, don't use this)
+    '''
+
     finnet = fincls(self.d, width, self.dout, self.L, bias_alpha=self.bias_alpha, last_bias_alpha=self.last_bias_alpha,
     first_layer_alpha=self.first_layer_alpha, last_layer_alpha=self.last_layer_alpha,
     device=self.device, layernorm=self.layernorm)
@@ -951,32 +1107,24 @@ class InfPiMLP():
     finnet.initialize(self, tieomegas=tieomegas)
     return finnet
 
+  # attrs necessary for saving/loading
   __saved_attrs__ = ['As', 'Amult', 'Bs', 'biases', 'bias_alpha', 'last_bias_alpha', 'first_layer_alpha', 'last_layer_alpha', 'layernorm']
 
   def state_dict(self):
+    '''
+    Get the state dict of all necessary attrs from this network.
+    '''
     d = dict()
     for a in self.__saved_attrs__:
       d[a] = getattr(self, a)
-    # d = dict(As=self.As, Amult=self.Amult, Bs=self.Bs, biases=self.biases, bias_alpha=self.bias_alpha, last_bias_alpha=self.last_bias_alpha,
-    # first_layer_alpha=self.first_layer_alpha, last_layer_alpha=self.last_layer_alpha, layernorm=self.layernorm)
     return d
 
   def load_state_dict(self, d):
+    '''
+    Load a state dict of all necessary attrs from this network.
+    '''
     for a in self.__saved_attrs__:
       setattr(self, a, d[a])
-    # self.As = d['As']
-    # self.Amult = d['Amult']
-    # self.Bs = d['Bs']
-    # self.biases = d['biases']
-
-  def load_state_dict(self, d):
-    for a in self.__saved_attrs__:
-      setattr(self, a, d[a])
-    # self.As = d['As']
-    # self.Amult = d['Amult']
-    # self.Bs = d['Bs']
-    # self.biases = d['biases']
-
 
   def load(self, filename):
     '''LEGACY LOADING METHOD - DO NOT USE, TEMPORARY USAGE ONLY'''
@@ -992,6 +1140,10 @@ class InfPiMLP():
       
 
 if __name__ == '__main__':
+  # if this file is run on its own, it will create a very tiny InfPiMLP.
+  # this is highly useful for testing small changes.
+
+
   X = torch.linspace(-np.pi, np.pi).reshape(-1, 1)
   y = torch.sin(X) #.reshape(-1)
   X = torch.cat([X, torch.ones_like(X)], dim=1)
@@ -999,7 +1151,6 @@ if __name__ == '__main__':
   y = y#.double()
   net = InfPiMLP(d=2, dout=1, L=1, r=2, initbuffersize=1000)
 
-  # print(net.As[1].norm(dim=))
   lr = 0.01
   for i in range(10):
     net.zero_grad()

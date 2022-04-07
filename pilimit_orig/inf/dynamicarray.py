@@ -5,6 +5,17 @@ import numpy as np
 
 class DynArr():
   def __init__(self, d=None, resizemult=2, initsize=0, initbuffersize=10, device='cpu', **kw):
+    '''
+    DynArr allows for the "expanding" arrays in the Pi-Net.
+
+    Each training step uses gradient *concatenation* instead of accumulation, 
+    meaning all matrices get larger.
+    
+    DynArr is a simple class to allow this to happen.
+
+    Note that torch is really not a fan of this whole process, 
+    hence the custom backwards and step functions.
+    '''
     self.d = d
     self.device = device
     self.resizemult = resizemult
@@ -52,6 +63,11 @@ class DynArr():
 
 class CycArr():
   def __init__(self, d=None, maxsize=10000, initsize=0, device='cpu', **kw):
+    '''
+    Used for some testing (deprecated). 
+
+    Instead of appending to end, write cyclically.
+    '''
     assert initsize <= maxsize
     self.size = initsize
     if initsize == maxsize:

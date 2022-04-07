@@ -19,8 +19,7 @@ It's worth noting pilimit_lib does *not* reproduce the main paper results when u
 Here are the things we are planning to add to the repo, in order of priority:
 
 - Document original repo
-  - add comments and explanations to main testing/training/class files
-  - Remove unnecessary files and any useless comments
+  - add comments and explanations to main testing/training files
   - Updated FKR  results
 - Document torch-style repo
   - main testing/training file comments

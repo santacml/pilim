@@ -54,29 +54,9 @@ def main(args, store):
                                       train_last_layer_only=conf.train_last_layer_only,
                                       gp1lp=conf.gp1lp,
                                       ntk1lp=conf.ntk1lp)
-    # benchmark = get_benchmark_by_name(config['dataset'],
-    #                                   config['folder'],
-    #                                   config['num_ways'],
-    #                                   config['num_shots'],
-    #                                   config['num_shots_test'],
-    #                                   hidden_size=config['hidden_size'],
-    #                                   normalize=config['normalize'],
-    #                                   bias_alpha=config['bias_alpha'],
-    #                                   last_bias_alpha=config.get('last_bias_alpha', 0),
-    #                                   depth=config.get('depth', 2),
-    #                                   infnet_r=config.get('infnet_r', 100),
-    #                                   seed=config['seed'],
-    #                                   orig_model=config.get('orig_model', False),
-    #                                   lin_model=config.get('lin_model', False),
-    #                                   train_last_layer_only=config.get('train_last_layer_only', False),
-    #                                   gp1lp=config.get('gp1lp', False),
-    #                                   ntk1lp=config.get('ntk1lp', False))
 
-    #with open(config['model_path'], 'rb') as f:
     with open(os.path.join(os.path.dirname(args.config), 'model.th'), 'rb') as f:
         benchmark.model.load_state_dict(torch.load(f, map_location=device))
-
-    # benchmark.model.no_adapt_readout = config.get('no_adapt_readout', True)
 
     if args.test_dataset_split == 'val':
         dataset = benchmark.meta_val_dataset
@@ -100,20 +80,11 @@ def main(args, store):
                             loss_function=benchmark.loss_function,
                             train_loss_function=conf.train_loss_function,
                             readout_fixed_at_zero=readout_fixed_at_zero,
-                            # grad_clip=conf.grad_clip,
-                            # gclip_per_param=conf.gclip_per_param,
                             device=device,
                             no_adapt_readout=conf.no_adapt_readout,
                             adapt_readout_only=conf.adapt_readout_only,
                             Gproj_inner=conf.Gproj_inner,
                             Gproj_outer=conf.Gproj_outer)
-        # metalearner = InfMAML(benchmark.model,
-        #                     first_order=config['first_order'],
-        #                     num_adaptation_steps=config['num_steps'],
-        #                     step_size=config['step_size'],
-        #                     loss_function=benchmark.loss_function,
-        #                     no_adapt_readout=config.get('no_adapt_readout', True),
-        #                     device=device)
 
     else:
         metalearner = ModelAgnosticMetaLearning(
@@ -123,18 +94,11 @@ def main(args, store):
             step_size=conf.step_size,
             loss_function=benchmark.loss_function,
             train_loss_function=conf.train_loss_function,
-            # grad_clip=conf.grad_clip,
             no_adapt_readout=conf.no_adapt_readout,
             adapt_readout_only=conf.adapt_readout_only,
             device=device,
             Gproj_inner=conf.Gproj_inner,
             Gproj_outer=conf.Gproj_outer)
-        # metalearner = ModelAgnosticMetaLearning(benchmark.model,
-        #                                     first_order=config['first_order'],
-        #                                     num_adaptation_steps=config['num_steps'],
-        #                                     step_size=config['step_size'],
-        #                                     loss_function=benchmark.loss_function,
-        #                                     device=device)
 
     results = metalearner.evaluate(meta_test_dataloader,
                                    max_batches=config['num_batches'],
