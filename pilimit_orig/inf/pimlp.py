@@ -7,8 +7,10 @@ from inf.dynamicarray import DynArr, CycArr
 from inf.utils import safe_sqrt, safe_acos, F00ReLUsqrt, F11ReLUsqrt, F02ReLUsqrt, VReLUmatrix, ABnorm
 
 class MyLinear(nn.Linear):
-
   def __init__(self, *args, **kw):
+    '''
+    Custom linear class that uses bias alpha.
+    '''
     self.device = kw.pop('device', 'cpu')
     self.bias_alpha = kw.pop('bias_alpha', 1)
     super().__init__(*args, **kw)
@@ -22,6 +24,9 @@ class MyLinear(nn.Linear):
       self.bias * self.bias_alpha if self.bias is not None else self.bias)
 
 def divbystd(x):
+  '''
+  Divide x by its standard deviation.
+  '''
   return x / (1e-5 + torch.norm(x, dim=1, keepdim=True))
 
 class FinPiMLP(nn.Module):
