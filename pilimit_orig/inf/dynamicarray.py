@@ -1,7 +1,4 @@
 import torch
-from torch import nn, optim
-from copy import deepcopy
-import numpy as np
 
 class DynArr():
   def __init__(self, d=None, resizemult=2, initsize=0, initbuffersize=10, device='cpu', **kw):
@@ -13,8 +10,7 @@ class DynArr():
     
     DynArr is a simple class to allow this to happen.
 
-    Note that torch is really not a fan of this whole process, 
-    hence the custom backwards and step functions.
+    Note that torch is really not a fan of this whole process, hence the custom backwards and
     '''
     self.d = d
     self.device = device

@@ -1,3 +1,10 @@
+'''
+  A script to test finite or inf-width PiMLPs on omniglot. 
+  
+  Also allows testing for nngp or ntk.
+
+  Arguments have short descriptions.
+'''
 import torch
 torch.set_default_dtype(torch.float64)
 import torch.nn.functional as F

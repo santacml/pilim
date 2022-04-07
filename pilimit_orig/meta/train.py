@@ -1,3 +1,12 @@
+'''
+  A script to train finite or inf-width PiMLPs on omniglot. 
+
+  See the readme for example usage. Note that this will train the networks, 
+  but there is a separate test script.
+
+  Arguments have short descriptions.
+'''
+
 import torch
 import math
 import os
@@ -6,12 +15,10 @@ import json
 import logging
 
 import cox.store
-from cox import utils
 from hashlib import sha1
 
 from torchmeta.utils.data import BatchMetaDataLoader
 
-import pandas as pd
 from meta.maml.datasets import get_benchmark_by_name
 from meta.maml.metalearners import ModelAgnosticMetaLearning
 from meta.maml.metalearners import InfMAML

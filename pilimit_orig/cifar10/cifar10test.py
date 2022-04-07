@@ -1,17 +1,23 @@
+'''
+  A simple cifar10 testing file.
+
+  This file allows for testing of a finite or inf pi-net, but also an ntk or nngp. 
+  See example usage in the readme with optimal hyperparameters per network.
+
+  In addition, this file allows for simple testing on the cifar10 test dataset,
+  or, if desired, creating a feature kernel (finite or inf-width) from a network
+  for feature kernel evaluation.
+'''
+
 import copy
 from inf.kernel import relu_gp_fn, relu_ntk_fn
 
-from torch import LongTensor
 from inf.utils import J1
 from inf.pimlp import *
-from inf.optim import InfSGD, InfMultiStepLR, MultiStepGClip
 from utils.data import *
-import numpy as np
 import argparse
 import torch.nn.functional as F
-import torch.utils.data as data_utils
 from torchvision import datasets, transforms
-from torch.optim import SGD
 import pandas as pd
 import time
 import itertools
@@ -33,32 +39,19 @@ def get_kernel_and_labels_from_kerfn(kerfn, dataloader, datasize=60_000):
   ker = torch.zeros(datasize, datasize, dtype=torch.double)
   labels = torch.zeros(datasize, 10, dtype=torch.double)
 
-  # kerlist, labellist = [], []
   for i, (data1, target1) in tqdm(list(enumerate(dataloader))):
-    # labellist.append(to_one_hot(target1).double().cpu())
-    # kerlist.append([])
     bsz = data1.shape[0]
     labels[i * bsz : (i+1) * bsz] = to_one_hot(target1)
     for j, (data2, _) in enumerate(dataloader2):
-      # if j < i:
-      #   continue
-      # data1 = data1.double()
-      # data2 = data2.double()
       data1 = data1.reshape(data1.shape[0], -1)
       data2 = data2.reshape(data2.shape[0], -1)
-      # kerlist[-1].append(kerfn(data1, data2).double().cpu())
       ker[i * bsz : (i+1) * bsz, j * bsz : (j+1) * bsz] = kerfn(data1, data2).double()
       ker[j * bsz : (j+1) * bsz, i * bsz : (i+1) * bsz] = \
           ker[i * bsz : (i+1) * bsz, j * bsz : (j+1) * bsz].T
 
-      # ker
-  # labels = torch.cat(labellist)
-  # ker = torch.cat([torch.cat(k, dim=1) for k in kerlist], dim=0)
-  # for k in kerlist()
   return ker, labels
 
 def kernel_predict(ker_inv_labels, ker_test_train):
-  # shape (batch, 10)
   out = ker_test_train @ ker_inv_labels
   prediction = torch.argmax(out, dim=1)
   return out, prediction
@@ -137,7 +130,6 @@ def main(arglst=None):
   else:
     print('using full precision')
 
-  # %%
   torch.manual_seed(args.seed)
   use_cuda = args.cuda
   test_batch_size = args.test_batch_size
@@ -149,27 +141,11 @@ def main(arglst=None):
   trainset = datasets.CIFAR10(root=args.data, train=True,
                                           download=True, transform=transform)
 
-  # trainset = remove_extra_cls_cifar10(trainset, [0,5])
-  # print("using only classes 0 and 5")
-  if args.train_subset_size:
-    np.random.seed(0) # reproducability of subset
-    indices = np.random.choice(range(len(trainset)), size=args.train_subset_size, replace=False).tolist()
-    trainset = data_utils.Subset(trainset, indices)
-    print("Using subset of", len(trainset), "training samples")
-
   train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size,
                                             shuffle=True, num_workers=8)
 
   testset = datasets.CIFAR10(root=args.data, train=False,
                                         download=True, transform=transform)
-
-  # testset = remove_extra_cls_cifar10(testset, [0,5])
-  # print("using only classes 0 and 5")
-  if args.test_subset_size:
-    np.random.seed(0) # reproducability of subset
-    indices = np.random.choice(range(len(testset)), size=args.test_subset_size, replace=False).tolist()
-    testset = data_utils.Subset(testset, indices)
-    print("Using subset of", len(testset), "testing samples")
 
   test_loader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
                                           shuffle=False, num_workers=8)
@@ -201,7 +177,6 @@ def main(arglst=None):
         else:
           data = data.reshape(data.shape[0], -1)
           _, kernel_output = infnet(data, save_kernel_output=True)
-          # g.append(infnet.kernel_output.cpu().double())
           g.append(kernel_output.cpu().double())
         labels.append(to_one_hot(target).cpu().double())
     # shape (dataset_size, r)
@@ -216,18 +191,21 @@ def main(arglst=None):
 
     
     # ker = 0.5 * J1(ker.cpu().double())
-    
     if isinstance(net, InfPiMLP):
       ss = torch.flatten(torch.cat(s))
       batch_size = 1000
       m = ker.shape[0]
+      # do this in batches because doing all at once usually overflows gpu
       for n in range(int(m / batch_size) + 1):
           idx1 = int(n*batch_size)
           idx2 = int((n+1)*batch_size)
           if (idx2 > m): idx2 = m
           if idx1 == idx2: break
 
+          # normalize kernel
           # ker[idx1:idx2, :] = 0.5 * J1(ker[idx1:idx2, :].cpu().double())   * ss[idx1:idx2, None]  * ss[None, :]   # normalize
+
+          # don't normalize kernel
           ker[idx1:idx2, :] = 0.5 * J1(ker[idx1:idx2, :].cpu().double())
       
       
@@ -239,7 +217,6 @@ def main(arglst=None):
 
     print("kernel", ker)
     print("kernel diag", torch.diag(ker))
-    # 0/0
 
     return ker, labels
 
@@ -343,10 +320,9 @@ def main(arglst=None):
       print(f'{toc - tic} seconds')
 
     reg = args.kernel_reg
-    # ker += reg * torch.eye(ker.shape[0], dtype=torch.float64)
     idx = list(range(ker.shape[0]))
     ker[idx, idx] += reg
-    N = 50000 if not args.train_subset_size else args.train_subset_size
+    N = 50000 
 
     if args.save_kernel:
       print('inverting kernel')
@@ -383,54 +359,10 @@ def main(arglst=None):
       **vars(args)
   ))
 
-  # if args.width:
-  #   width = args.width
-  #   print('converting infnet to cpu')
-  #   net = net.float().cpu()
-  #   torch.set_default_dtype(torch.float32)
-  #   print('sampling finnet')
-  #   finnet = net.sample(width)
-  #   print('deleting infnet')
-  #   del net
-  #   print('moving finnet to device')
-  #   finnet = finnet.to(device)
-  #   print('test finnet')
-  #   fin_test_loss, fin_test_acc = test_nn(finnet, device, test_loader)
-  #   print(f'width {width}: test loss: {fin_test_loss}\ttest acc: {fin_test_acc}')
-    
-  #   log_df.append(
-  #     dict(
-  #       fin_test_loss=fin_test_loss,
-  #       fin_test_acc=fin_test_acc,
-  #       **vars(args)
-  #   ))
-    
   if args.save_dir:
     log_file = os.path.join(args.save_dir, 'log.df')
     os.makedirs(args.save_dir, exist_ok=True)
     pd.DataFrame(log_df).to_pickle(log_file)
 
-  # return test_loss, test_acc
-
-# %%
 if __name__ == '__main__':
   main()
-  
-  # dataloader = [
-  #   (torch.cat([torch.ones(2, 4), torch.zeros(2, 2)], dim=1) if i < 2
-  #   else torch.eye(6)[2*i:2*(i+1)],
-  #   torch.LongTensor([1, 2]))
-  #   #  torch.LongTensor([[1] + [0] * 9,
-  #   #                    [1] + [0] * 9]))
-  #  for i in range(3)]
-  # # print(
-  # #   torch.LongTensor([[1] + [0] * 9,
-  # #                     [1] + [0] * 9]))
-  # ker, labels = get_kernel_and_labels_from_kerfn(
-  #   lambda x, y: x @ y.T,
-  #   dataloader,
-  #   datasize=6
-  # )
-  # print(ker)
-  # print(labels)
-  # # print(np.linalg.norm(ker - ker.T))

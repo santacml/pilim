@@ -6,7 +6,7 @@ This repo is a work in progress, we will continue to update the repo over time. 
 
 # Structure
 
-There are two main folders, [pilimit_orig](pilimit_orig) and [pilimit_lib](pilimit_lib). pilimit_orig contains the original code for the paper for reproducibility, with light documentation. pilimit_lib is the library you should use if you want to create your own pi-nets. Each folder has a separate readme with instructions for use.
+There are two main folders, [pilimit_orig](pilimit_orig) and [pilimit_lib](pilimit_lib). pilimit_orig contains the original code for the paper for reproducibility, with very light documentation. pilimit_lib is the library you should use if you want to create your own pi-nets. Each folder has a separate readme with instructions for use.
 
 After writing the paper, we found the code in pilimit_orig difficult for re-use. Given its highly specific nature, here are many "gotcha's" that are hard to work around. We include this library so if someone else wants to double-check our paper or reproduce it exactly, that can be done. 
 
@@ -19,11 +19,11 @@ It's worth noting pilimit_lib does *not* reproduce the main paper results when u
 Here are the things we are planning to add to the repo, in order of priority:
 
 - Document original repo
-  - add comments and explanations to main testing/training files
   - Updated FKR  results
 - Document torch-style repo
-  - main testing/training file comments
-  - caveats with .parameters, sgd, gclip, backward explanation, etc and example usage writeup
+  - write readme, caveats with .parameters, sgd, gclip, backward explanation, etc and example usage writeup
+  - in-depth class file comments, docstrings
+  - in-depth main testing/training file comments
 - Double-check command rerun for accuracy / upload saved .pkl version of each best model
 - Create easily usable pip package for pilimit_lib
 - Colab notebook for easy reproducibility

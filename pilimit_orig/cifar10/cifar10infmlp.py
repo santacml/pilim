@@ -1,10 +1,19 @@
-# %%
+'''
+  A simple cifar10 training and testing file with standard training arguments. 
+
+  See example usage in the readme with optimal hyperparameters per network.
+  Training arguments each have a short description.
+
+  It is recommended to use fp16 for speed and storage efficiency.
+  
+  This will NOT work in a multi-gpu environment.
+  For a full CIFAR10 InfPiMLP training run, 8-16gb of GPU VRAM is necessary.
+'''
 from inf.pimlp import *
 from inf.optim import InfSGD, InfMultiStepLR, MultiStepGClip
 import numpy as np
 import argparse
 import torch.nn.functional as F
-import torch.utils.data as data_utils
 from torchvision import datasets, transforms
 from torch.optim import SGD
 import pandas as pd
@@ -126,7 +135,6 @@ def main(arglst=None):
   else:
     print('using full precision')
 
-  # %%
   torch.manual_seed(args.seed)
   use_cuda = args.cuda
   batch_size = args.batch_size
@@ -136,37 +144,28 @@ def main(arglst=None):
 
   kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 
+  # standard transforms
   transform = transforms.Compose(
       [transforms.ToTensor(),
       transforms.Normalize([0.49137255, 0.48235294, 0.44666667], [0.24705882, 0.24352941, 0.26156863])])
 
   trainset = datasets.CIFAR10(root=args.data, train=True,
                                           download=True, transform=transform)
-  if args.train_subset_size:
-    np.random.seed(0) # reproducability of subset
-    indices = np.random.choice(range(50000), size=args.train_subset_size, replace=False).tolist()
-    trainset = data_utils.Subset(trainset, indices)
-    print("Using subset of", len(trainset), "training samples")
     
   train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
                                             shuffle=True, num_workers=8)
 
   testset = datasets.CIFAR10(root=args.data, train=False,
                                         download=True, transform=transform)
-  if args.test_subset_size:
-    np.random.seed(0) # reproducability of subset
-    indices = np.random.choice(range(10000), size=args.test_subset_size, replace=False).tolist()
-    testset = data_utils.Subset(testset, indices)
-    print("Using subset of", len(testset), "testing samples")
 
   test_loader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
                                           shuffle=False, num_workers=8)
-
 
   classes = ('plane', 'car', 'bird', 'cat',
             'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
   def get_loss(output, target, reduction='mean'):
+    # we only ever use xent
     if args.loss == 'xent':
       loss = F.cross_entropy(output, target, reduction=reduction)
     elif args.loss == 'mse':
@@ -179,6 +178,9 @@ def main(arglst=None):
   def train_nn(model, device, train_loader, optimizer, epoch, Gproj=True,
               log_interval=100, gclip_sch=False, max_batch_idx=None,
               lr_gain=0, scheduler=None):
+      '''
+      Training loop for one epoch for the model.
+      '''
       model.train()
       train_loss = 0
       losses = []
@@ -193,6 +195,7 @@ def main(arglst=None):
           optimizer.zero_grad()
           output = model(data)
           if isinstance(model, InfPiMLP):
+            # Custom backwards / gclip functions necessary
             output.requires_grad = True
             output.retain_grad()
             loss = get_loss(output, target)
@@ -206,7 +209,6 @@ def main(arglst=None):
             losses.append(loss.item())
             loss.backward()
             if Gproj:
-              # print('doing Gproj')
               model.Gproj()
             if gclip_sch and gclip_sch.gclip > 0:
               if args.gclip_per_param:
@@ -214,6 +216,8 @@ def main(arglst=None):
                   torch.nn.utils.clip_grad_norm_(param, gclip_sch.gclip)
               else:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), gclip_sch.gclip)
+          
+          # for InfMLP, this calls step on the network
           optimizer.step()
           if lr_gain > 0:
             optimizer.param_groups[0]['lr'] += lr_gain / nbatches
@@ -243,7 +247,12 @@ def main(arglst=None):
             100. * correct / len(train_loader.dataset)))
       
       return losses, train_acc
+
+  
   def test_nn(model, device, test_loader):
+      '''
+      Test the model on all samples in test_loader.
+      '''
       model.eval()
       test_loss = 0
       correct = 0
@@ -274,6 +283,7 @@ def main(arglst=None):
   din = 32**2 * 3
   dout = 10
   
+  # always create an InfPiMLP
   infnet = InfPiMLP(d=din, dout=dout, L=L, r=r,
                     first_layer_alpha=args.first_layer_alpha,
                     last_layer_alpha=args.last_layer_alpha,
@@ -293,15 +303,22 @@ def main(arglst=None):
       bias_lr_mult=args.bias_lr_mult)
     mynet = infnet
   else:
+    # if using finnet, sample from infnet
+    # this allows us to use the same infnet initialization for many widths
+    # and we can therefore show finnet approaching infnet using the same initialization
     if args.last_layer_grad_no_alpha:
       raise NotImplementedError()
     torch.set_default_dtype(torch.float32)
     mynet = infnet.sample(args.width, tieomegas=args.tie_omegas)
     mynet = mynet.cuda()
+
+    # gaussian_init gets rid of all pi-initialization and replaces it with mu-initialization
+    # this should be used WITHOUT --Gproj
     if args.gaussian_init:
       for _, lin in mynet.linears.items():
         lin.weight.data[:].normal_()
         lin.weight.data /= lin.weight.shape[1]**0.5 / 2**0.5
+    
     if not args.float:
       torch.set_default_dtype(torch.float16)
       mynet = mynet.half()
@@ -331,6 +348,7 @@ def main(arglst=None):
       })
     optimizer = SGD(paramgroups, lr, weight_decay=wd)
 
+  # create all schedulers, for lr and gclip
   milestones = []
   if args.lr_drop_milestones:
     milestones = [int(float(e) * len(train_loader)) for e in args.lr_drop_milestones.split(',')]
@@ -378,8 +396,8 @@ def main(arglst=None):
       with open(model_file, 'wb') as f:
         torch.save(mynet, f)
 
-  # %%
   for epoch in range(1, args.epochs+1):
+    # main training loop
     epoch_start = time.time()
     losses, train_acc = train_nn(mynet, device, train_loader, optimizer, epoch, Gproj=not args.no_Gproj, gclip_sch=gclip_sch, scheduler=sch)
     epoch_end = time.time()
@@ -396,6 +414,8 @@ def main(arglst=None):
       with open(model_file, 'wb') as f:
         torch.save(mynet, f)
       print(f'model saved at {model_file}')
+    
+    # output is logged as a dataframe
     log_df.append(
       dict(
         epoch=epoch,
@@ -410,6 +430,7 @@ def main(arglst=None):
         epoch_time=epoch_time,
         **vars(args)
     ))
+
     if not args.human and not args.quiet:
       if epoch == 1:
         header = f'epoch\ttr loss\tts loss\ttr acc\tts acc\ttime'
@@ -422,6 +443,5 @@ def main(arglst=None):
       pd.DataFrame(log_df).to_pickle(log_file)
   return min(test_accs)
 
-# %%
 if __name__ == '__main__':
   main()
