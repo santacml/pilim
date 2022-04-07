@@ -112,7 +112,7 @@ python -m meta.train dataset --num-epochs 50 --meta-lr 32.0 --step-size 0.353553
 
 ## Imagenet MuNet
 
-python -m imagenet.transfer_imagenet --save-dir=./output/ --gaussian-init --save-model --cuda --width={width} --lr=0.005 --batch-size=16 --gclip=0.0 --epochs=40 --human --wd=0.008 --bias-alpha=4.0  --first-layer-lr-mult=0.553341 --last-layer-lr-mult=5.656854 --gclip-per-param 
+python -m imagenet.transfer_imagenet --save-dir=./output/ --gaussian-init --save-model --cuda --width=2048 --lr=0.005 --batch-size=16 --gclip=0.0 --epochs=40 --human --wd=0.008 --bias-alpha=4.0  --first-layer-lr-mult=0.553341 --last-layer-lr-mult=5.656854 --gclip-per-param 
 
 Test with: epoch 32 reg 1e-4
 
