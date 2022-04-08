@@ -38,7 +38,7 @@ search:
       --seed {seed}
       --savedir $$PT_OUTPUT_DIR
   type: grid
-  max_trials: 7
+  max_trials: 8
   # max_trials: 50
   params:
     - name: gclip
@@ -74,7 +74,8 @@ search:
     - name: width
       spec: discrete
       # values: [500, 1000, 5000, 10000, 20000, 40000, None]
-      values: [500, 1000, 5000, 10000, 20000, 40000]
+      # values: [500, 1000, 5000, 10000, 20000, 40000]
+      values: [512, 1024, 2048, 4096, 8192, 16384, 32768, None]
     - name: seed
       spec: discrete
       # values: "np.arange(50)"
