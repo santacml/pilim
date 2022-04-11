@@ -102,6 +102,8 @@ def main(arglst=None):
                       help='test the kernel induced by the learned infnet embedding')
   parser.add_argument('--kernel-reg', type=float, default=1e-8,
                       help='diagonal regularization for the kernel')
+  parser.add_argument('--multiple-regs', action='store_true',
+                      help='use a predetermined range of kernel regs')
   parser.add_argument('--loss', type=str, default='xent', choices=['xent', 'mse'],
                       help='loss func')
   parser.add_argument('--human', action='store_true',
@@ -319,45 +321,62 @@ def main(arglst=None):
       toc = time.time()
       print(f'{toc - tic} seconds')
 
-    reg = args.kernel_reg
-    idx = list(range(ker.shape[0]))
-    ker[idx, idx] += reg
-    N = 50000 
-
-    if args.save_kernel:
-      print('inverting kernel')
-      tic = time.time()
-      ker_inv = torch.inverse(ker[:N, :N])
-      toc = time.time()
-      print(f'{toc - tic} seconds')
-
-      print('saving inverse kernel')
-      tic = time.time()
-      torch.save(ker_inv, os.path.join(args.save_dir, 'ker_inv.th'))
-      toc = time.time()
-      print(f'{toc - tic} seconds')
-
-      ker_inv_labels = ker_inv @ labels[:N]
+    if args.multiple_regs:
+      print("using multiple kernel reg values")
+      regs = [10**(-n) for n in range(5,2,-1)]
     else:
-      print('inverting with solve - not saving kernel')
-      ker_inv_labels = torch.linalg.solve(ker[:N, :N], labels[:N])
+      regs = [args.kernel_reg]
 
-    print('making prediction')
-    tic = time.time()
-    ker_test_train = ker[N:, :N]
-    out, pred = kernel_predict(ker_inv_labels, ker_test_train)
-    ker_acc = (torch.argmax(labels[N:], dim=1) == pred).float().mean()
-    print(f'kernel acc: {ker_acc}')
-    toc = time.time()
-    print(f'{toc - tic} seconds')
 
-  log_df.append(
-    dict(
-      inf_test_loss=test_loss,
-      inf_test_acc=test_acc,
-      ker_acc=ker_acc,
-      **vars(args)
-  ))
+
+    for reg in regs:
+      reg = args.kernel_reg
+      idx = list(range(ker.shape[0]))
+      ker[idx, idx] += reg
+      N = 50000 
+
+      if args.save_kernel:
+        print('inverting kernel')
+        tic = time.time()
+        ker_inv = torch.inverse(ker[:N, :N])
+        toc = time.time()
+        print(f'{toc - tic} seconds')
+
+        print('saving inverse kernel')
+        tic = time.time()
+        torch.save(ker_inv, os.path.join(args.save_dir, 'ker_inv.th'))
+        toc = time.time()
+        print(f'{toc - tic} seconds')
+
+        ker_inv_labels = ker_inv @ labels[:N]
+      else:
+        print('inverting with solve - not saving kernel')
+        ker_inv_labels = torch.linalg.solve(ker[:N, :N], labels[:N])
+
+      print('making prediction')
+      tic = time.time()
+      ker_test_train = ker[N:, :N]
+      out, pred = kernel_predict(ker_inv_labels, ker_test_train)
+      ker_acc = (torch.argmax(labels[N:], dim=1) == pred).float().mean()
+      print(f'kernel acc: {ker_acc}')
+      toc = time.time()
+      print(f'{toc - tic} seconds')
+
+      ker[idx, idx] -= reg
+
+      if isinstance(net, FinPiMLP):
+        width = net.linears[0].weight.shape[0]
+      else:
+        width = None
+      log_df.append(
+        dict(
+          inf_test_loss=test_loss,
+          inf_test_acc=test_acc,
+          ker_acc=ker_acc,
+          ker_reg=reg,
+          width=width,
+          **vars(args)
+      ))
 
   if args.save_dir:
     log_file = os.path.join(args.save_dir, 'log.df')

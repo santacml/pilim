@@ -2,7 +2,8 @@ description: PiLimit Kernels Cifar10
 
 target:
   service: amlk8s
-  name: ms-shared
+  # name: ms-shared
+  name: itpeusp100cl
 
 environment:
   image: pytorch/pytorch:1.9.0-cuda10.2-cudnn7-devel
@@ -35,29 +36,43 @@ search:
     #infnet
     # - python -m cifar10.cifar10test --cuda --kernel-reg={reg} --test-kernel --load-model-path="/mnt/output/projects/pilimit/amlt-results/7368187087.06697-d503334f-7dc6-4b35-92d8-0f914b098ae7/2/checkpoints/epoch{epoch}.th" --save-dir $$PT_OUTPUT_DIR --batch-size 32 --test-batch-size 32
     
-    - python -m cifar10.cifar10test --cuda --kernel-reg={reg} --test-kernel --load-model-path="/mnt/output/projects/pilimit/amlt-results/{folder}/checkpoints/epoch{epoch}.th" --save-dir $$PT_OUTPUT_DIR --batch-size 32 --test-batch-size 32
+    - python -m cifar10.cifar10test --multiple-regs --cuda --kernel-reg={reg} --test-kernel --load-model-path="/mnt/output/projects/pilimit/amlt-results/{folder}/checkpoints/epoch{epoch}.th" --save-dir $$PT_OUTPUT_DIR --batch-size 32 --test-batch-size 32
   type: grid
   # max_trials: 200
   # max_trials: 4
   # max_trials: 702
   # max_trials: 500
-  max_trials: 10
+  max_trials: 1
   params:
     # - name: r
     #   spec: discrete
     #   values: "[400]"
     - name: reg
       spec: discrete
-      values: "[10**(-n) for n in range(7,2,-1)]"
+      # values: "[10**(-n) for n in range(7,2,-1)]"
+      # values: "[10**(-n) for n in range(5,2,-1)]"
+      values: [0]
     - name: epoch
       spec: discrete
-      # values: "range(0, 51, 1)"
-      values: "[0]"
+      values: "range(0, 51, 1)"
+      # values: "[0]"
     - name: folder
       spec: discrete
       # pinet and munet epoch 0
-      values: "['7367558769.83894-f1ece810-a680-4da4-b253-adc138b4783e/2',
-                '7367558822.88152-23dd1c42-6980-4f7f-b084-919859a3947c/2']"
+      values: ['7350566325.82644-9a89d35b-ae68-4175-8374-e50935878479/2', # infnet
+               '7350567242.18552-27cd01d2-c99c-4441-93a9-e2918f6a0b76/2',
+               '7350567242.18680-4e29e327-60a3-4daa-a021-57aeb6b0050f/2',
+               '7350567242.18813-f66fb8d8-9fa7-42b3-b73d-491c297bcb25/2',
+               '7350567242.19196-ae28622c-f4f6-473b-b672-63d47bd64506/2',
+               '7350567242.19323-a1f6fa8e-34e8-4f13-9a18-0aba3cb51f3e/2',
+               '7350567242.19465-bb74b7ca-ab09-4948-a58d-8e31e521c9ae/2',
+              #  '7350567242.19066-ab0ed6f3-14e5-44c3-a5be-548da7ae4ed1/2' # large net
+               ]
+
+
+
+      # values: "['7367558769.83894-f1ece810-a680-4da4-b253-adc138b4783e/2',
+      #           '7367558822.88152-23dd1c42-6980-4f7f-b084-919859a3947c/2']"
       #pinet and munet
       # values: "['7368450254.88399-a310f200-df92-4416-9ab4-0d5760911135/2',
       #           '7368690537.25205-af6b1843-8f1d-41a7-9015-e13fb6df3b1a/2']"
