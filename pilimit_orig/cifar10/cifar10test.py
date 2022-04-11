@@ -374,7 +374,7 @@ def main(arglst=None):
           inf_test_acc=test_acc,
           ker_acc=ker_acc,
           ker_reg=reg,
-          width=width,
+          loaded_width=width,
           **vars(args)
       ))
 
