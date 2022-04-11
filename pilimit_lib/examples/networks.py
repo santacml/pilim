@@ -37,11 +37,7 @@ class InfMLP(PiNet):
         self.register_buffer("last_bias_alpha", torch.tensor(last_bias_alpha, dtype=torch.get_default_dtype()))
         self.layernorm = layernorm
 
-        # self.layers = []
         self.layers = nn.ModuleList()
-
-        # cuda_batch_size = None
-        # cuda_batch_size = 10000 # this is a big number for testing but will make it consume lots of mem!
 
         self.layers.append(InfPiInputLinearReLU(d_in, r, bias_alpha=bias_alpha, device=device))
         for n in range(1, L+1):
@@ -49,15 +45,9 @@ class InfMLP(PiNet):
         
         self.layers.append(InfPiLinearReLU(r, r_out=d_out, output_layer=True, bias_alpha=last_bias_alpha, device=device, layernorm=layernorm, cuda_batch_size=cuda_batch_size))
 
-        # self._layers = nn.ModuleList()
-
-        # for layer in self.layers:
-        #     self._layers.append(layer)
         
     def forward(self, x):
         for n in range(0, self.L+2):
-            # if n == self.L+1: 
-            #     self.gs1 = x.clone()
             x = self.layers[n](x)
             if n == 0: 
                 x *= self.first_layer_alpha

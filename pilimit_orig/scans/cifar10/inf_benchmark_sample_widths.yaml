@@ -73,9 +73,9 @@ search:
       values: [8]
     - name: width
       spec: discrete
-      # values: [500, 1000, 5000, 10000, 20000, 40000, None]
       # values: [500, 1000, 5000, 10000, 20000, 40000]
-      values: [512, 1024, 2048, 4096, 8192, 16384, 32768, None]
+      # values: [512, 1024, 2048, 4096, 8192, 16384, 32768, 0]
+      values: [ 0]
     - name: seed
       spec: discrete
       # values: "np.arange(50)"

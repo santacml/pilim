@@ -24,6 +24,8 @@ Here are the things we are planning to add to the repo, in order of priority:
   - write readme, caveats with .parameters, sgd, gclip, backward explanation, etc and example usage writeup
   - in-depth class file comments, docstrings
   - in-depth main testing/training file comments
+  - Fix compare_mlp and _cifar10
+  - refactor tensors
 - Double-check command rerun for accuracy / upload saved .pkl version of each best model
 - Create easily usable pip package for pilimit_lib
 - Colab notebook for easy reproducibility
