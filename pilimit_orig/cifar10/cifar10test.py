@@ -365,7 +365,7 @@ def main(arglst=None):
       ker[idx, idx] -= reg
 
       if isinstance(net, FinPiMLP):
-        width = net.linears[0].weight.shape[0]
+        width = net.width
       else:
         width = None
       log_df.append(
