@@ -1,6 +1,12 @@
-# To add a new cell, type '# %%'
-# To add a new markdown cell, type '# %% [markdown]'
-# %%
+'''
+Example training file on cifar10.
+
+This file is able to obtain extremely close results to the original paper, but slightly different,
+differences being from floating point rounding.
+
+
+'''
+
 import sys, os
 import numpy as np
 import argparse
@@ -155,7 +161,6 @@ def main(arglst=None):
     print('using full precision')
 
 
-  # %%
   torch.manual_seed(args.seed)
   use_cuda = args.cuda
   batch_size = args.batch_size
@@ -225,9 +230,6 @@ def main(arglst=None):
       for batch_idx, (data, target) in enumerate(train_loader):
         if max_batch_idx is not None and batch_idx > max_batch_idx:
             break
-        # if data.shape[0] != batch_size:
-        #   print("skipping wrong shaped batch")
-        #   continue
         n = batch_idx + 1
         data, target = data.to(device).type(torch.get_default_dtype()), target.to(device)
 
@@ -249,10 +251,7 @@ def main(arglst=None):
         loss.backward()
         backward_time = backward_time * (n-1)/n + (time.time() - start) / n
 
-        # stage_grad(model)
-
         if batch_idx % args.accum_steps == 0:
-          # unstage_grad(model)
 
           start = time.time()
           if gclip_sch and gclip_sch.gclip > 0:
@@ -260,10 +259,10 @@ def main(arglst=None):
               if args.gclip_per_param:
                   for param in model.parameters():
                       clip_grad_norm_(param, gclip)
-                      # torch.nn.utils.clip_grad_norm_(param, gclip_sch.gclip)
+                      # torch.nn.utils.clip_grad_norm_(param, gclip_sch.gclip)  # normal torch usage
               else:
                   clip_grad_norm_(model.parameters(), gclip)
-                  # torch.nn.utils.clip_grad_norm_(model.parameters(), gclip_sch.gclip)
+                  # torch.nn.utils.clip_grad_norm_(model.parameters(), gclip_sch.gclip)  # normal torch usage
           clip_time = clip_time * (n-1)/n + (time.time() - start) / n
 
           start = time.time()
@@ -330,7 +329,6 @@ def main(arglst=None):
       return test_loss, correct / len(test_loader.dataset)
 
 
-  # %%
   lr = args.lr
   wd = args.wd
   gclip = args.gclip
@@ -350,29 +348,14 @@ def main(arglst=None):
   
   teacher = None
   if args.teacher_path and len(args.teacher_path) > 0:
-    # teacher = InfMLP(din, dout, r, L, device=device,
-    #                 first_layer_alpha=args.first_layer_alpha,
-    #                 last_layer_alpha=args.last_layer_alpha,
-    #                 bias_alpha=args.bias_alpha,
-    #                 last_bias_alpha=args.last_bias_alpha,
-    #                 layernorm=args.layernorm)
     teacher = InfMLP(din, dout, r, L, device=device,
                     first_layer_alpha=1,
                     last_layer_alpha=.5,
                     bias_alpha=.5,
-                    # last_bias_alpha=args.last_bias_alpha,
+                    last_bias_alpha=args.last_bias_alpha,
                     layernorm=args.layernorm)
-    # mynet = FinPiMLPSample(infnet, args.width)
     print("loading teacher model from", args.teacher_path)
     teacher.load_state_dict(torch.load(args.teacher_path))
-
-
-#   if args.init_from_data:
-#     loader = torch.utils.data.DataLoader(trainset, batch_size=r,
-#                                           shuffle=True, num_workers=2)
-#     X = next(iter(loader))[0]
-#     X = X.reshape(X.shape[0], -1)
-#     infnet.initialize_from_data(X)
 
   mynet = None
   if args.width is None:
@@ -409,18 +392,13 @@ def main(arglst=None):
       'params': [l.B for l in infnet.layers[1:]],
     })
     optimizer = PiSGD(paramgroups, lr, weight_decay=wd, momentum=args.momentum)
-    # optimizer = PiSGD(infnet.parameters(), lr=lr, weight_decay=wd)
     mynet = infnet
   else:
-    # if args.no_apply_lr_mult_to_wd:
-    #   raise NotImplementedError()
     if args.last_layer_grad_no_alpha:
       raise NotImplementedError()
-    # torch.set_default_dtype(torch.float32)
-    # mynet = FinPiMLP(din, args.width, dout, L)
-    # mynet.initialize(infnet.cpu().float())
+
     mynet = FinPiMLPSample(infnet, args.width)
-    # mynet = infnet.sample(args.width)
+    
     mynet = mynet.cuda()
     if args.gaussian_init:
       for _, lin in mynet.layers.items():
@@ -429,9 +407,7 @@ def main(arglst=None):
     if not args.float:
       # torch.set_default_dtype(torch.float16)
       mynet = mynet.half()
-    # if args.bias_lr_mult != 1 or args.first_layer_lr_mult != 1:
-      # import pdb; pdb.set_trace()
-      # raise NotImplementedError()
+    
     paramgroups = []
     # first layer weights
     paramgroups.append({
@@ -455,12 +431,8 @@ def main(arglst=None):
         'params': [l.bias for l in mynet.layers],
         'lr': args.bias_lr_mult * lr
       })
-    # optimizer = PiSGD(paramgroups, lr, weight_decay=wd, momentum=args.momentum, nesterov=False)
-    optimizer = PiSGD(paramgroups, lr, weight_decay=wd, momentum=args.momentum)
+    optimizer = PiSGD(paramgroups, lr, weight_decay=wd, momentum=args.momentum)  # nesterov not implemented
 
-    
-    # optimizer = SGD(paramgroups, lr, weight_decay=wd, momentum=args.momentum, nesterov=True if args.momentum else False)
-    # optimizer = SGD(mynet.parameters(), lr, weight_decay=wd)
 
   if args.model_path:
     print("loading model from", args.model_path)
@@ -506,15 +478,7 @@ def main(arglst=None):
     model_path = os.path.join(args.save_dir, 'checkpoints')
     os.makedirs(model_path, exist_ok=True)
     model_file = os.path.join(model_path, f'epoch0.th')
-    # with open(model_file, 'wb') as f:
-    #   torch.save(mynet, f)
-    # mynet.save(model_file)
     torch.save(mynet.state_dict(), model_file)
-
-  # if torch.cuda.device_count() > 1:
-  #   print("Using", torch.cuda.device_count(), "GPUs")
-  #   mynet = nn.DataParallel(mynet)
-  #   mynet.to("cuda:0")
 
 
   if args.test:
@@ -524,7 +488,6 @@ def main(arglst=None):
     0/0
 
 
-  # %%
   for epoch in range(1, args.epochs+1):
     epoch_start = time.time()
     losses, train_acc = train_nn(mynet, device, train_loader, optimizer, epoch, Gproj=True, gclip_sch=gclip_sch, scheduler=sch, teacher=teacher)
@@ -569,6 +532,5 @@ def main(arglst=None):
   
   return min(test_accs)
 
-# %%
 if __name__ == '__main__':
   main()
