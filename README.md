@@ -15,21 +15,44 @@ After writing the paper, we found the code in pilimit_orig difficult for re-use.
 
 It's worth noting pilimit_lib does *not* reproduce the main paper results when using the same hyperparameters due to various floating point and rounding issues, but the results are essentially identical.
 
+# Conda Environment
+
+To create a conda environment with proper dependencies for both libraries, run the following commands:
+
+Create a new environment if desired:
+```
+conda create --name pilimit
+conda activate pilimit
+```
+
+Dependencies:
+```
+conda install pytorch torchvision torchaudio cudatoolkit=11.1 -c pytorch -c conda-forge 
+conda install -c conda-forge opt_einsum
+conda install matplotlib psutil seaborn tqdm matplotlib
+pip install ipywidgets
+```
+
+
 # Roadmap
 
 Here are the things we are planning to add to the repo, in order of priority:
 
+High priority:
 - Document pilimit_orig
   - Updated FKR  results
 - Document pilimit_lib
   - in-depth class file comments, docstrings: utils, functional, math, tensors, optim
   - in-depth main testing/training file comments: cifar10, test_suite
-  - refactor finite net to use activation inside layer?
-- dependency lists for both libraries
+
+
+Low priority items:
 - Double-check command rerun for accuracy / upload saved .pkl version of each best model
-- Create easily usable pip package for pilimit_lib
+- Create pip package for pilimit_lib
 - Colab notebook for easy reproducibility
-- pilimit_lib extensions
+- nicer dependency / conda env creation file
+- pilimit_lib extensions / refactors
+  - refactor finite net to use activation inside layer?
   - Fix compare_mlp and _cifar10
   - Separate layernorm layer in pilimit_lib
   - Multiple activation functions
