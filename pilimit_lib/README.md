@@ -31,6 +31,20 @@ However, many functions will not work and instead have drop-in replacements. We 
 
 Note that only vanilla SGD is implemented right now.
 
+# Testing Files
+
+We have a few different files for running pi-nets, summarized in this table:
+
+
+
+| File | Purpose |
+| ------------- |---------  |
+| [cifar10mlp.py](cifar10mlp.py) |  finite or inf-width pi-nets running on CIFAR10 | 
+| [minimal_test_mlp.py](tests/minimal_test_mlp.py)|  extremely minimal dummy test for pi-nets debugging|
+| [test_suite_mlp.py](tests/test_suite_mlp.py) |  compare the inf pi-net to finite-pinet performance on dummy data - results should exactly match for any hparam|
+| [compare_mlp.py](compare_mlp.py) |  compare results of this library with the original pilimit library for accuracy |
+| [compare_mlp_cifar10.py](compare_mlp_cifar10.py) | compare results of this library with the original pilimit library for accuracy on cifar10|
+
 
 # Implementation Details
 
@@ -57,7 +71,7 @@ InfPiLinearRelu uses a special paramter subclass called InfPiParameter, from [te
 - concatenating incoming gradients
 - setting the "pi size" for a given input sample
 - storing pi_grad_norm for gradient clipping
-- whether to apply the lr to this parameter or not (lr only used for Amult)
+- whether to apply the lr to this parameter or not (lr/wd only used for Amult)
 
 FinPiLinearReLU also uses a special parameter subclass called FinPiParameter, from [tensors.py](inf/tensors.py), which handles:
 - storing omegas, gcovinv, and the pi projection matrix
