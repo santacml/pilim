@@ -53,9 +53,11 @@ Finite-width pi-networks are extremely similar to regular MLPs by design. Forwar
 Here we detail the hacks used to make torch integration happen
 
 
-InfPiLinearRelu uses a special paramter subclass called InfPiParameter, from [tensors.py](inf/tensors.py), which handles 2 things:
+InfPiLinearRelu uses a special paramter subclass called InfPiParameter, from [tensors.py](inf/tensors.py), which handles a few things things:
 - concatenating incoming gradients
 - setting the "pi size" for a given input sample
+- storing pi_grad_norm for gradient clipping
+- whether to apply the lr to this parameter or not (lr only used for Amult)
 
 FinPiLinearReLU also uses a special parameter subclass called FinPiParameter, from [tensors.py](inf/tensors.py), which handles:
 - storing omegas, gcovinv, and the pi projection matrix
