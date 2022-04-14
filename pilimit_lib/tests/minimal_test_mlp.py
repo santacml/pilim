@@ -90,29 +90,37 @@ for epoch in range(epoch):
     # print("MEM", torch.cuda.memory_reserved() / 1e9, torch.cuda.max_memory_reserved()  / 1e9)
 print("time", time.time() - tic)
 
-init_pred = net(data) 
-torch.save(net.state_dict(), 'trained.th')
-
-new_params = torch.load('trained.th')
-
-# model_copy = type(net)(net.d_in, net.d_out, net.r, net.L, device=device, first_layer_alpha=first_layer_alpha, last_layer_alpha=last_layer_alpha, bias_alpha=bias_alpha )
-model_copy = type(net)(net.d_in, net.d_out, net.r, net.L, device=device )
-# model_copy.load_state_dict(net.state_dict()) # works if register buffer is used where appropriate
-model_copy.load_state_dict(new_params)
-    
-print("post loading", (model_copy(data)  - net(data)).abs().sum())
 
 
-# test saving, loading
-# finnet = FinPiMLPSample(net, 400)
-# torch.save(finnet.state_dict(), 'epoch0.th')
+'''
+This section is to debug saving and loading
+to ensure results exactly match.
 
-# new_finnet = FinPiMLPSample(net, 400)
-# print("pre loading", (new_finnet(data)  - finnet(data)).sum())
-# new_finnet.load_state_dict(torch.load('epoch0.th'))
-# print("post loading", (new_finnet(data)  - finnet(data)).sum())
+Turned off by default.
+'''
 
-# model_copy.load_state_dict(torch.load('epoch0.th'))
+if False:
+    init_pred = net(data) 
+    torch.save(net.state_dict(), 'trained.th')
 
-# print((model_copy(data)  - init_pred).sum())
-# 0/0
+    new_params = torch.load('trained.th')
+
+    # model_copy = type(net)(net.d_in, net.d_out, net.r, net.L, device=device, first_layer_alpha=first_layer_alpha, last_layer_alpha=last_layer_alpha, bias_alpha=bias_alpha )
+    model_copy = type(net)(net.d_in, net.d_out, net.r, net.L, device=device )
+    # model_copy.load_state_dict(net.state_dict()) # works if register buffer is used where appropriate
+    model_copy.load_state_dict(new_params)
+        
+    print("post loading", (model_copy(data)  - net(data)).abs().sum())
+
+
+    # finnet = FinPiMLPSample(net, 400)
+    # torch.save(finnet.state_dict(), 'epoch0.th')
+
+    # new_finnet = FinPiMLPSample(net, 400)
+    # print("pre loading", (new_finnet(data)  - finnet(data)).sum())
+    # new_finnet.load_state_dict(torch.load('epoch0.th'))
+    # print("post loading", (new_finnet(data)  - finnet(data)).sum())
+
+    # model_copy.load_state_dict(torch.load('epoch0.th'))
+
+    # print((model_copy(data)  - init_pred).sum())
