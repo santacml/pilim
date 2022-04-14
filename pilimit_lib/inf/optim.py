@@ -5,6 +5,10 @@ from torch.optim.optimizer import Optimizer
 
 class MultiStepGClip():
   def __init__(self, gclip, milestones, gamma):
+    '''
+    A class to keep track of gradient clipping throughout a number of epochs,
+    with milestones to multiply gclip by gamma.
+    '''
     self.gclip = gclip
     self.milestones = milestones
     self.gamma = gamma
@@ -19,6 +23,12 @@ class MultiStepGClip():
 class PiSGD(Optimizer):
     def __init__(self, params, lr, momentum=0, dampening=0,
                  weight_decay=0):
+        '''
+        A custom optimizer to perform SGD with pi-nets.
+
+        This optimizer is almost entirely copied from the vanilla torch optimizer.
+        The only differenes are in the step function.
+        '''
         if lr < 0.0:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if momentum < 0.0:
@@ -63,6 +73,7 @@ class PiSGD(Optimizer):
                         else:
                             # p.grad[:] = p.omega @ (p.gcovinv @ (p.omega.T @ p.grad))
 
+                            # project the finite pi-net gradient into r-space
                             grad = p.grad.view(p.grad.shape[0], -1) # for conv layers
                             p.grad[:] = (p.pi_proj @ grad).view(p.grad.shape)
                     
@@ -86,11 +97,12 @@ class PiSGD(Optimizer):
 
                     # p.add_(p.pi.grad, alpha=1)
                     
+                    # apply weight decay if needed (for Amult)
                     if p.apply_lr:
                         p *= 1 - lr * weight_decay
 
+                    # concatenate the gradient with lr applied and do not add to params_with_grad
                     grad = p.pi.grad
-
                     p.cat_grad(grad, alpha=-lr)
                 
 

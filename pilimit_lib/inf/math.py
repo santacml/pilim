@@ -1,3 +1,10 @@
+'''
+This file contains useful math functions for pi calculations,
+largely v-transforms.
+
+This file is almost entirely copied from previous Tensor Programs repos.
+'''
+
 import torch
 import numpy as np
 from opt_einsum import contract
@@ -12,20 +19,22 @@ def intersect_mtlb(a, b):
     return c, ia[np.isin(a1, c)], ib[np.isin(b1, c)]
 
 def safe_sqrt(arr, eps=1e-20):
+  # operates in-place to save memory
   # return torch.sqrt(torch.clamp(arr, min=eps))
   return torch.sqrt_(torch.clamp(arr, min=eps))
 
 def safe_acos(arr, eps=1e-20):
-  # print(torch.min(arr), torch.max(arr))
+  # operates in-place to save memory
   # return torch.acos(torch.clamp(arr, min=-1+eps, max=1-eps))
   return torch.acos_(torch.clamp(arr, min=-1+eps, max=1-eps))
 
 def safe_sqrt_(arr, eps=1e-20):
+  # operates in-place to save memory
   # return torch.sqrt(torch.clamp(arr, min=eps))
   return torch.sqrt_(torch.clamp_(arr, min=eps))
 
 def safe_acos_(arr, eps=1e-20):
-  # print(torch.min(arr), torch.max(arr))
+  # operates in-place to save memory
   # return torch.acos(torch.clamp(arr, min=-1+eps, max=1-eps))
   return torch.acos_(torch.clamp_(arr, min=-1+eps, max=1-eps))
 

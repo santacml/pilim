@@ -2,6 +2,12 @@ import torch
 
 class FinPiParameter(torch.nn.Parameter):
     def __new__(cls, data, requires_grad=True):
+        '''
+        A Finite Pi-Parameter.
+
+        This class is almost the same as torch.nn.Parameter,
+        but has a function to store omega, gcovinv, and pi_proj.
+        '''
         return super().__new__(cls, data, requires_grad)
 
     def __init__(self, data, requires_grad=True):
@@ -12,16 +18,58 @@ class FinPiParameter(torch.nn.Parameter):
         self.pi_proj = None
 
     def store_gproj_vars(self, omega, gcovinv, pi_proj):
+        '''
+        A function to store omega, gcovinv, and pi_proj in this variable.
+        These variables are used for gradient projection.
+        Storing in the parameter allows for easy tracking of these matrices 
+        as well as easy saving/loading.
+
+        However, this is kind of a gross solution. It would probably be better to 
+        accomplish this in another way (stored in the layers?).
+
+        This will get refactored.
+        '''
         self.omega = omega
         self.gcovinv = gcovinv
         self.pi_proj = pi_proj
 
 class InfPiParameter(torch.nn.Parameter):
     def __new__(cls, dyn_data, apply_lr=False, lr_mult=1, requires_grad=True, optim_mode="project"):
-        # return super().__new__(cls, dyn_data.tensor() if isinstance(dyn_data, DynamicTensor) else dyn_data, requires_grad)
-        return super().__new__(cls, dyn_data.tensor() if False else dyn_data, requires_grad)
+        '''
+        Create a custom __new__ function which used to be necessary for DynamicTensor
+        but isn't now.
 
-    def __init__(self, dyn_data, apply_lr=False, lr_mult=1, requires_grad=True, optim_mode="project"):
+        This will get refactored.
+        '''
+        # return super().__new__(cls, dyn_data.tensor() if isinstance(dyn_data, DynamicTensor) else dyn_data, requires_grad)
+        return super().__new__(cls, dyn_data, requires_grad)
+
+    def __init__(
+            self, 
+            dyn_data, 
+            apply_lr=False, 
+            lr_mult=1, 
+            requires_grad=True, 
+            optim_mode="project"):
+        '''
+        Define an Inf-width Pi Parameter (A, B, or Amult).
+
+        These parameters allow for gradient concatenation instead of accumulation.
+        To allow for this, set_pi_size can be used to dynamically size of the pi update
+        (which depends on batch size).
+
+        This parameter also allows for gradient accumulation (multiple steps without lr),
+        and stores pi_grad_norm for gradient clipping.
+
+        Inputs:
+            dyn_data: the expanding tensor to concatenate gradient to
+            apply_lr: whether to acually use lr on this param when updatng (only for Amult)
+            lr_mult: an lr multiplier for just this parameter
+            requires_grad: whether to require grad (required by Parameter)
+            optim_mode: which optimization mode to use (only projection for now)
+        '''
+
+
         self.dyn_data = dyn_data
         self.apply_lr = apply_lr
         self.lr_mult = lr_mult
@@ -35,30 +83,33 @@ class InfPiParameter(torch.nn.Parameter):
         
         # necessary for gradient clipping - A and B must be used together to find this value
         # but ultimately it applies to only A
+        # this will get refactored
         self.pi_grad_norm = None 
-
         self.accum_grad = None
 
     def project(self):
+        '''
+        Use projection for training.
+        This initializes a dummy self.pi.
+        '''
         self.optim_mode = "project"
 
         self.pi = torch.zeros(0, 0, requires_grad=True, device=self.device, dtype=self.dtype)
         
-        # def project_add_(self, x, alpha=1):
-        #     self.dyn_data.cat(alpha*x*self.lr_mult if self.apply_lr else x)
-        #     self.data = self.dyn_data.tensor()
-        
-        # self.add_ = lambda x, alpha=None: project_add_(self, x, alpha=alpha)
-        
     def cat_grad(self, x, alpha=1):
-        # self.dyn_data.cat(alpha*x*self.lr_mult if self.apply_lr else x)
-        # self.data = self.dyn_data.tensor()
-        # self.data = self.dyn_data._arr[:self.dyn_data._size]
+        '''
+        Concate an incoming gradient update x to the inf-width pi-parameter,
+        with learning rate multiplier and alpha if appilcable (only Amult).
+        '''
 
         self.data = torch.cat((self.data, alpha*x*self.lr_mult if self.apply_lr else x))
         
     @torch.no_grad()
     def stage_grad(self):
+        '''
+        Stage gradient updates in self.accum_grad, in case one 
+        wishes to use a small batch size and only apply lr every few steps.
+        '''
         grad = self.pi.grad.clone()
 
         if self.accum_grad is None:
@@ -70,6 +121,9 @@ class InfPiParameter(torch.nn.Parameter):
         
     @torch.no_grad()
     def unstage_grad(self):
+        '''
+        Reload the gradient into self.pi.grad.
+        '''
         self.set_pi_size(self.accum_grad.shape[0])
 
         self.pi.grad = self.accum_grad.clone()
@@ -77,9 +131,13 @@ class InfPiParameter(torch.nn.Parameter):
 
     @torch.no_grad()
     def set_pi_size(self, batch_shape, dim=0):
+        '''
+        Reshape self.pi according to batch_shape so that 
+        it may store the projected inf-width gradient update.
+        '''
+
         if batch_shape == self.pi.shape[dim]:
             if self.pi.grad is not None: self.pi.grad[:] = 0
-            # if self.pi.grad is not None: self.pi.grad.zero_()
             return
 
         shape = list(self.shape) # retain other dims of var
@@ -87,11 +145,7 @@ class InfPiParameter(torch.nn.Parameter):
 
         self.pi = torch.zeros(shape, requires_grad=True, device=self.device, dtype=self.dtype)
         self.pi.retain_grad()
-        
 
-    def direct(self):
-        self.optim_mode = "direct"
-        self.add_ = super().add_
 
 ''' 
 

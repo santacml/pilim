@@ -1,15 +1,18 @@
 import warnings
 from inf.layers import InfPiInputLinearReLU, InfPiLinearReLU
-from inf.tensors import FinPiParameter, InfPiParameter
+from inf.tensors import InfPiParameter
 import torch
-import torch.optim._functional as F
-from torch.optim.optimizer import Optimizer
 from inf.math import ABnorm
 from inf.layers import *
 
 
 @torch.no_grad()
 def stage_grad(module):
+    '''
+    Stage the gradient of all pi parameters in a module
+    so that multiple steps can be run before applying lr.
+    '''
+
     for param in module.parameters():
         if not isinstance(param, InfPiParameter): continue
 
@@ -17,6 +20,9 @@ def stage_grad(module):
         
 @torch.no_grad()
 def unstage_grad(module):
+    '''
+    Unstage the staged gradient on all parameters.
+    '''
     for param in module.parameters():
         if not isinstance(param, InfPiParameter): continue
 
@@ -24,6 +30,10 @@ def unstage_grad(module):
 
 @torch.no_grad()
 def pi_init(module):
+    '''
+    Apply initialization to all pi-modules.
+    Does not have a way to pass omegas to finite layers currently.
+    '''
     #TODO: make a way to provide a dictionary of previous omegas for finnets
     if isinstance(module, InfPiInputLinearReLU):
         module.initialize()
@@ -39,6 +49,12 @@ def pi_init(module):
 
 @torch.no_grad()
 def store_pi_grad_norm_(modules):
+    '''
+    Store the ABnorm of all A matrices in a pi modules
+    for gradient clipping.
+
+    TODO: refactor this
+    '''
     for module in modules:
         if isinstance(module, InfPiLinearReLU):
             module.A.pi_grad_norm = ABnorm(module.A.pi.grad.detach(), module.B.pi.grad.detach())
@@ -46,6 +62,14 @@ def store_pi_grad_norm_(modules):
 def clip_grad_norm_(
         parameters, max_norm, norm_type = 2.0,
         error_if_nonfinite = False):
+    '''
+    A copy of torch's clip_grad_norm_, 
+    except that it adds pi_parameters which clip their gradient using
+    pi_grad_norm stored in store_pi_grad_norm_.
+
+    TODO: refactor this
+    '''
+
     
     if isinstance(parameters, torch.Tensor):
         parameters = [parameters]
