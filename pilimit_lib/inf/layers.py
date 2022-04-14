@@ -10,22 +10,45 @@ import collections
 # outputs are from preactiation to preactivation and includes activation inside layer
 
 def divbystd(x):
-  return x / (1e-5 + torch.norm(x, dim=1, keepdim=True))
+    ''' 
+    Divide an input by it's standard deviation (for layernorm).
+    '''
+    return x / (1e-5 + torch.norm(x, dim=1, keepdim=True))
 
 class FinPiInputLinearReLU(nn.Module):
-    def __init__(self, r, n_in, n_out=None, bias_alpha=1, layernorm=False, inf_layer=None, device="cpu"):
+    def __init__(
+            self, 
+            r, 
+            n_in, 
+            n_out=None, 
+            bias_alpha=1, 
+            layernorm=False, 
+            inf_layer=None, 
+            device="cpu"):
         super(FinPiInputLinearReLU, self).__init__()
+        '''
+        Finite-width input layer to a pi-net, with ReLU activation.
+
+        TODO: activation actually happens outside this clas.
+
+        Inputs:
+            r: rank of probability space
+            n_in: dim of input
+            r_out: dim of output
+            bias_alpha: scalar to multiply to bias  
+            layernorm: use layernorm in between layers
+            inf_layer: inf layer to sample from
+            device: torch device to use
+        '''
         self.r = r
         self.n_in = n_in
         if n_out is None:
             n_out = n_in
         self.n_out = n_out
-        # self.bias_alpha = bias_alpha
         self.register_buffer("bias_alpha", torch.tensor(bias_alpha, dtype=torch.get_default_dtype()))
         self.layernorm = layernorm
         self.device = device
         self.dtype = torch.get_default_dtype()
-        # if inf_layer: self.dtype = inf_layer.A.dtype
 
         self.weight = FinPiParameter(torch.zeros((n_out, n_in), device=self.device, dtype=self.dtype))
         if bias_alpha:
@@ -33,6 +56,7 @@ class FinPiInputLinearReLU(nn.Module):
         else:
             self.register_parameter('bias', None)
 
+        # store omega, gcovinv, and pi-proj operators for later use
         omega = torch.randn(self.n_out, self.r, device=self.device).float()
         gcovinv = torch.inverse(omega.T @ omega).type_as(self.weight)
         omega = omega.type_as(self.weight)
@@ -44,6 +68,11 @@ class FinPiInputLinearReLU(nn.Module):
 
     @torch.no_grad()
     def initialize(self, inf_layer):
+        '''
+        Initialize finite-width pi-net.
+        If an infinite-width layer is given, will sample from it.
+        Otherwise, sample from a randomly initialized infinite-width layer.
+        '''
         if inf_layer is not None:
             A = inf_layer.A
         else:
@@ -53,6 +82,7 @@ class FinPiInputLinearReLU(nn.Module):
         A = A.type_as(self.weight)
         
         self.weight[:] = self.n_out**-0.5 * (self.omega @ A.T)
+        # store_gproj_vars stores these for projection in the optimizer
         self.weight.store_gproj_vars(self.omega, self.gcovinv, self.pi_proj)
 
         if self.bias is not None:
@@ -63,6 +93,11 @@ class FinPiInputLinearReLU(nn.Module):
             self.bias.store_gproj_vars(self.omega, self.gcovinv, self.pi_proj)
 
     def forward(self, input):
+        '''
+        Forward pass given an input.
+        The forward pass is just a regular ffn. Only differences are in gradient updating.
+        '''
+
         bias = self.bias * self.bias_alpha if self.bias is not None else self.bias
         out = torch.nn.functional.linear(input, self.weight, bias)
 
@@ -71,6 +106,9 @@ class FinPiInputLinearReLU(nn.Module):
         return out
 
     def half(self):
+        '''
+        Convert layer to float16.
+        '''
         super(FinPiInputLinearReLU, self).half()
         self.weight.store_gproj_vars(self.omega, self.gcovinv, self.pi_proj)
         if self.bias is not None:
@@ -82,13 +120,37 @@ class FinPiInputLinearReLU(nn.Module):
         )
 
 class InfPiInputLinearReLU(nn.Module):
-    def __init__(self, r, r_out=None, bias_alpha=1, layernorm=False, device="cpu"):
+    def __init__(
+            self, 
+            r, 
+            r_out=None, 
+            bias_alpha=1, 
+            layernorm=False, 
+            device="cpu"):
+        '''
+        Infinite-width input layer to a pi-net, with ReLU activation.
+
+        Mathematically, not much happens in this class and it is really equivalent to a regular FFN.
+        However, this class is important to signify this is for an inf-width pi-net
+        for things like initialization, sampling, etc.
+
+        A *very* important concept to understand is that outputs are 
+        the next layer pre-activations, and layer activation occurs inside the class itself.
+        This is why the activation function is included in the class, 
+        so that it can be applied to the previous layer output.
+
+        Inputs:
+            r: dim of input
+            r_out: rank of output
+            bias_alpha: scalar to multiply to bias  
+            layernorm: use layernorm in between layers
+            device: torch device to use
+        '''
         super(InfPiInputLinearReLU, self).__init__()
         self.r = r
         if r_out is None:
             r_out = r
         self.r_out = r_out
-        # self.bias_alpha = bias_alpha
         self.register_buffer("bias_alpha", torch.tensor(bias_alpha, dtype=torch.get_default_dtype()))
         self.layernorm = layernorm # does nothing for inf input as layernorm affects downstream layer
         self.device = device
@@ -104,10 +166,17 @@ class InfPiInputLinearReLU(nn.Module):
 
     @torch.no_grad()
     def initialize(self):
+        '''
+        Initialize layer.
+        '''
         self.A.normal_()
         self.A /= self.A.norm(dim=0, keepdim=True)
 
     def forward(self, g_in):
+        '''
+        Forward propagate an input (g_in).
+        This is equivalent to a regular FFN and is updated using autograd.
+        '''
         g_out = g_in @ self.A.type_as(g_in)
 
         if self.bias is not None:
@@ -116,6 +185,9 @@ class InfPiInputLinearReLU(nn.Module):
         return g_out
 
     def sample(self, n_in, n_out):
+        '''
+        Sample a finite-width pi-net input layer using a given n_in and n_out.
+        '''
         return FinPiInputLinearReLU(self.r_out, n_in, n_out=n_out, bias_alpha=self.bias_alpha, layernorm=self.layernorm, inf_layer=self, device=self.device)
 
     def extra_repr(self):
@@ -124,21 +196,47 @@ class InfPiInputLinearReLU(nn.Module):
         )
 
 class FinPiLinearReLU(nn.Module):
-    def __init__(self, r, n_in, n_out=None, bias_alpha=1, output_layer=False, layernorm=False, inf_layer=None, prev_omega=None, nonlin=nn.ReLU, device="cpu"):
+    def __init__(
+            self, 
+            r, 
+            n_in, 
+            n_out=None, 
+            bias_alpha=1, 
+            output_layer=False, 
+            layernorm=False, 
+            inf_layer=None, 
+            prev_omega=None, 
+            nonlin=nn.ReLU, 
+            device="cpu"):
         super(FinPiLinearReLU, self).__init__()
+        '''
+        Finite-width layer for a pi-Net, with ReLU activation.
+
+        TODO: activation actually happens outside this clas.
+
+        Inputs:
+            r: rank of probability space
+            n_in: dim of input
+            r_out: dim of output
+            bias_alpha: scalar to multiply to bias  
+            output_layer: whether this is an output layer or not (determines projection)
+            layernorm: use layernorm in between layers
+            inf_layer: inf layer to sample from
+            prev_omega: the previous layer's omega to use for initialization
+            nonlin: the nonlinearity to use
+            device: torch device to use
+        '''
         self.r = r
         self.n_in = n_in
         if n_out is None:
             n_out = n_in
         self.n_out = n_out
-        # self.bias_alpha = bias_alpha
         self.register_buffer("bias_alpha", torch.tensor(bias_alpha, dtype=torch.get_default_dtype()))
         self.output_layer = output_layer
         self.layernorm = layernorm
         self.device = device
         self.nonlin = nonlin()
         self.dtype = torch.get_default_dtype()
-        # if inf_layer: self.dtype = inf_layer.A.dtype
 
         param_type = nn.Parameter if self.output_layer else FinPiParameter
         
@@ -148,11 +246,13 @@ class FinPiLinearReLU(nn.Module):
         else:
             self.register_parameter('bias', None)
 
+        # we do not project output layer
         if not self.output_layer:
             omega = torch.randn(self.n_out, self.r, device=self.device).float()
             gcovinv = torch.inverse(omega.T @ omega).type_as(self.weight)
             omega = omega.type_as(self.weight)
 
+            # store omega, gcovinv, and pi-proj operators for later use
             self.register_buffer("omega", omega)
             self.register_buffer("gcovinv", gcovinv)
             self.register_buffer("pi_proj", self.omega @ (self.gcovinv @ self.omega.T))
@@ -161,6 +261,14 @@ class FinPiLinearReLU(nn.Module):
 
     @torch.no_grad()
     def initialize(self, inf_layer, prev_omega=None):
+        '''
+        Initialize finite-width pi-net.
+        If an infinite-width layer is given, will sample from it.
+        Otherwise, sample from a randomly initialized infinite-width layer.
+
+        prev_omega is necessary for proper initialization,
+        though in practice we find it isn't very important.
+        '''
         if inf_layer is not None:
             A = inf_layer.A
             Amult = inf_layer.Amult
@@ -173,8 +281,6 @@ class FinPiLinearReLU(nn.Module):
             A.mul_(0 if self.output_layer else A.shape[1]**-0.5)
             B[:] = torch.nn.functional.normalize(B, dim=1)
 
-        dtype = self.weight.dtype
-
         A = (Amult * A.T).T.type_as(self.weight)
         B = B.type_as(self.weight)
 
@@ -186,6 +292,7 @@ class FinPiLinearReLU(nn.Module):
             self.weight[:] = self.n_out**-0.5 * (A.T) @ (self.nonlin(prev_omega @ B.T)).T
         else:
             self.weight[:] = self.n_out**-1.0 * self.omega @ (A.T) @ (self.nonlin(prev_omega @ B.T)).T
+            # store_gproj_vars stores these for projection in the optimizer
             self.weight.store_gproj_vars(self.omega, self.gcovinv, self.pi_proj)
 
             if self.bias is not None:
@@ -196,18 +303,22 @@ class FinPiLinearReLU(nn.Module):
                 self.bias.store_gproj_vars(self.omega, self.gcovinv, self.pi_proj)
 
     def forward(self, input):
+        '''
+        Forward pass given an input.
+        The forward pass is just a regular ffn. Only differences are in gradient updating.
+        '''
         bias = self.bias * self.bias_alpha if self.bias is not None else self.bias
         out = torch.nn.functional.linear(input, self.weight, bias)
         
-        # TODO: michael
         '''
+        TODO: michael
         layernorm is wonky
         it needs to happen after layer alpha, and before relu
         this lib was built to extract layer alpha outside of layer
         however, for infnet, layernorm needs to happen inside the layer after... for grad purposes
         each layer needs layernorm to happen at a different time
 
-        layernorm could be made it's own layer or something, idk. this is very confusing. need a better way of handling this.
+        layernorm could be made it's own layer or something, idk. need a better way of handling this.
         but for now, it works to do the layernorm inside the net itself but set the flag in the layer. not pretty.
         '''
         # if self.layernorm and not self.output_layer:
@@ -215,6 +326,9 @@ class FinPiLinearReLU(nn.Module):
         return out
 
     def half(self):
+        '''
+        Convert layer to float16.
+        '''
         super(FinPiLinearReLU, self).half()
         if not self.output_layer:
             self.weight.store_gproj_vars(self.omega, self.gcovinv, self.pi_proj)
@@ -227,25 +341,58 @@ class FinPiLinearReLU(nn.Module):
         )
 
 class InfPiLinearReLU(nn.Module):
-    def __init__(self, r, r_out=None, bias_alpha=1, output_layer=False, layer_alpha=1, layernorm=False, optim_mode="project", device="cpu", cuda_batch_size=None):
+    def __init__(
+            self, 
+            r, 
+            r_out=None, 
+            bias_alpha=1, 
+            output_layer=False, 
+            layer_alpha=1, 
+            layernorm=False, 
+            optim_mode="project", 
+            device="cpu", 
+            cuda_batch_size=None):
         super(InfPiLinearReLU, self).__init__()
+        '''
+        Infinite-width layer for a pi-net, with ReLU activation.
+
+        A *very* important concept to understand is that outputs are 
+        the next layer pre-activations, and layer activation occurs inside the class itself.
+        This is why the activation function is included in the class, 
+        so that it can be applied to the previous layer output.
+
+        Inputs:
+            r: rank of input
+            r_out: rank of output
+            bias_alpha: scalar to multiply to bias  
+            output_layer: whether this is an output layer (for initialization)
+            layer_alpha: scalar to multiply to layer outputs
+            layernorm: use layernorm in between layers
+            optim_mode: which mode to optimize in (only projection available)
+            device: torch device to use
+            cuda_batch_size: 
+                if your gpu doesn't have a lot of memory, this will batch
+                operations from cpu to gpu in chunks of fixed size.
+                This means the net can run for much longer (until RAM runs out),
+                but is very, very, very slow.
+        '''
+
         self.r = r
         if optim_mode not in ["project"]:
             raise ValueError("optim_mode must be 'project'")
         if r_out is None:
             r_out = r
         self.r_out = r_out
-        # self.bias_alpha = torch.tensor([bias_alpha])
-        # self.bias_alpha = bias_alpha
         self.register_buffer("bias_alpha", torch.tensor(bias_alpha, dtype=torch.get_default_dtype()))
         self.output_layer = output_layer
-        # self.layer_alpha = layer_alpha
         self.register_buffer("layer_alpha", torch.tensor(layer_alpha, dtype=torch.get_default_dtype()))
         self.layernorm = layernorm
         self.device = device
         self.InfPiLinearReLUFunction = InfPiLinearReLUFunctionBuilder(layernorm=layernorm, cuda_batch_size=cuda_batch_size)
 
         A = torch.zeros([r, r_out], device=device, requires_grad=True)
+        # Amult stores lr and momentum in float32 format to ensure accuracy.
+        # not using Amult in float16 will eventually incur large errors.
         Amult = torch.zeros([r], device=device, requires_grad=True, dtype=torch.float32)
         B = torch.zeros([r, r], device=device, requires_grad=True)
         
@@ -262,10 +409,11 @@ class InfPiLinearReLU(nn.Module):
 
         self.initialize()
 
-        self.layer_buckets = None # for pruning
-
     @torch.no_grad()
     def initialize(self):
+        '''
+        Initialize inf-width layer.
+        '''
         self.A.normal_()
         self.B.normal_()
         self.B[:] = torch.nn.functional.normalize(self.B, dim=1)
@@ -278,14 +426,26 @@ class InfPiLinearReLU(nn.Module):
         self.Amult[:] = 1
 
     def project(self):
+        '''
+        Determine optimizaton mode (not really used - stay tuned for other modes, maybe).
+        '''
         self.optim_mode = "project"
         self.A.project()
         self.B.project()
 
     def forward(self, g_in, gbar_in=None, s_in=None):
+        '''
+        Forward pass given an input.
+        
+        This does 2 things:
+            - set the pi sizes for A, B, and Amult
+            - calls InfPiLinearReLUFunction, the real meat of the layer
+        '''
         if self.A.shape[0] != self.B.shape[0]:
             raise ValueError("A and B have different sizes for M. Check that the gradient is applied to both.")
         
+        # set_pi_size allows for the dynamic sizing of the backwards projected gradient
+        # as this tensor is dependent on batch size
         self.A.set_pi_size(g_in.shape[0])
         self.Amult.set_pi_size(g_in.shape[0])
         self.B.set_pi_size(g_in.shape[0])
@@ -296,6 +456,11 @@ class InfPiLinearReLU(nn.Module):
         return g_out
 
     def sample(self, n_in, n_out, prev_omega=None):
+        '''
+        Sample a finite-width version of this layer given n_in and n_out.
+
+        prev_omega (omegas from the previous layer) strongly preferred as well.
+        '''
         return FinPiLinearReLU(self.r, n_in, n_out=n_out, bias_alpha=self.bias_alpha, output_layer=self.output_layer, layernorm=self.layernorm, inf_layer=self, prev_omega=prev_omega, device=self.device)
 
     def extra_repr(self):

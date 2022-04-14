@@ -1,12 +1,15 @@
 # pilim
-Pi-Limit Torch-Style Library and Original Paper Code
 
-This repo is a work in progress, we will continue to update the repo over time. Please feel free to add an Issue if you find a bug or have a question.
+Welcome to the repo for [Efficient Computation of Deep, Nonlinear, Infinite-Width Neural Networks that Learn Features](https://www.microsoft.com/en-us/research/publication/efficient-computation-of-deep-nonlinear-infinite-width-neural-networks-that-learn-features/)!
 
 
-# Structure
+This repo is a work in progress, we will continue to update the repo over time. Please feel free to add an issue if you find a bug or have a question.
 
-There are two main folders, [pilimit_orig](pilimit_orig) and [pilimit_lib](pilimit_lib). pilimit_orig contains the original code for the paper for reproducibility, with very light documentation. pilimit_lib is the library you should use if you want to create your own pi-nets. Each folder has a separate readme with instructions for use.
+
+# Overview
+
+
+There are two independent subfolders: [pilimit_orig](pilimit_orig) and [pilimit_lib](pilimit_lib). pilimit_orig contains the original code for the paper for reproducibility, with very light documentation. **pilimit_lib is the library you should use if you want to create your own pi-nets.** Each folder has a separate readme with instructions for use.
 
 After writing the paper, we found the code in pilimit_orig difficult for re-use. Given its highly specific nature, here are many "gotcha's" that are hard to work around. We include this library so if someone else wants to double-check our paper or reproduce it exactly, that can be done. 
 
@@ -18,15 +21,18 @@ It's worth noting pilimit_lib does *not* reproduce the main paper results when u
 
 Here are the things we are planning to add to the repo, in order of priority:
 
-- Document original repo
+- Document pilimit_orig
   - Updated FKR  results
-- Document torch-style repo
+- Document pilimit_lib
   - write readme, caveats with .parameters, sgd, gclip, backward explanation, etc and example usage writeup
   - in-depth class file comments, docstrings
   - in-depth main testing/training file comments
   - Fix compare_mlp and _cifar10
-  - refactor tensors
+  - refactor finite net to use activation inside layer?
 - dependency lists for both libraries
 - Double-check command rerun for accuracy / upload saved .pkl version of each best model
 - Create easily usable pip package for pilimit_lib
 - Colab notebook for easy reproducibility
+- Separate layernorm layer in pilimit_lib
+- Multiple activation functions
+- refactor output_layer / finite projection

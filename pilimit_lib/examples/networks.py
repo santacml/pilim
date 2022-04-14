@@ -8,6 +8,7 @@ from torchvision import models
 class PiNet(torch.nn.Module):
     '''
     This is a base class only to help with easy loading of pi-networks. 
+    Resizing parameters is necessary before loading.
     '''
 
     def load_state_dict(self, state_dict):

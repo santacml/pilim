@@ -1,4 +1,3 @@
-from inf.layers import InfPiInputLinearReLU, InfPiLinearReLU
 from inf.tensors import FinPiParameter, InfPiParameter
 import torch
 import torch.optim._functional as F
