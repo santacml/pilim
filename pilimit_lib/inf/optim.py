@@ -63,13 +63,14 @@ class PiSGD(Optimizer):
                         else:
                             # p.grad[:] = p.omega @ (p.gcovinv @ (p.omega.T @ p.grad))
 
-
                             grad = p.grad.view(p.grad.shape[0], -1) # for conv layers
                             p.grad[:] = (p.pi_proj @ grad).view(p.grad.shape)
                     
                     params_with_grad.append(p)
                     d_p_list.append(p.grad)
 
+
+                    # this is handled below?
                     # if weight_decay > 0:
                     #     p *= 1 - lr * weight_decay
 

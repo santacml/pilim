@@ -1,3 +1,11 @@
+'''
+Some very minimal testing for infinite and finite pi-nets.
+
+By default, this will run a pi-net on some dummy data.
+
+This is useful for ironing out small bugs, or ensuring changes did not hurt anything.
+'''
+
 import torch
 from torch import nn
 from inf.layers import *
@@ -32,19 +40,15 @@ last_layer_alpha = 2
 bias_alpha = .5
 batch_size = 50
 net = InfMLP(d_in, d_out, r, L, device=device, first_layer_alpha=first_layer_alpha, last_layer_alpha=last_layer_alpha, bias_alpha=bias_alpha )
+
+# testing deepcopy
 # import copy
 # net = copy.deepcopy(net)
-
 # net.apply(pi_init)
-
 # stores even nested params!
 # print(net.layers[1].bias.omega == model_copy.layers[1].bias.omega)
 
-# 0/0
-
-
 # print([type(n) for n in net.parameters()])
-# 0/0
 
 
 
@@ -88,11 +92,8 @@ print("time", time.time() - tic)
 
 init_pred = net(data) 
 torch.save(net.state_dict(), 'trained.th')
-# print(net.state_dict().keys())
-# 0/0
 
 new_params = torch.load('trained.th')
-# my_params = model_copy.state_dict()
 
 # model_copy = type(net)(net.d_in, net.d_out, net.r, net.L, device=device, first_layer_alpha=first_layer_alpha, last_layer_alpha=last_layer_alpha, bias_alpha=bias_alpha )
 model_copy = type(net)(net.d_in, net.d_out, net.r, net.L, device=device )
@@ -102,6 +103,7 @@ model_copy.load_state_dict(new_params)
 print("post loading", (model_copy(data)  - net(data)).abs().sum())
 
 
+# test saving, loading
 # finnet = FinPiMLPSample(net, 400)
 # torch.save(finnet.state_dict(), 'epoch0.th')
 

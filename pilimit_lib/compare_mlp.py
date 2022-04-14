@@ -34,10 +34,10 @@ class Timer():
     self.lasttime = newtime
 
 
-# import os, sys
-# sys.path.insert(1, os.path.split(os.path.dirname(os.path.realpath(sys.argv[0])))[0])
-# sys.path.insert(1, "C:\repos\pilimit\inf")
-from pilimit.inf.pimlp import *
+import os, sys
+p = os.path.abspath('..')
+sys.path.insert(1, p)
+from pilimit_orig.inf.pimlp import *
 
 
 # 0/0

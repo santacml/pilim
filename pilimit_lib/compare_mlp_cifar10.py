@@ -13,8 +13,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import torch.nn.functional as F
 import ssl
-from pilimit2.inf.pimlp import *
-from pilimit2.inf.optim import InfSGD
+from ..pilimit_orig.inf.pimlp import *
+from ..pilimit_orig.inf.optim import InfSGD
 
 
 def main():
