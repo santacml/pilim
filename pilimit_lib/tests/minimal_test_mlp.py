@@ -8,10 +8,11 @@ from inf.utils import *
 import time
 
 
-torch.set_default_dtype(torch.float16)
+# torch.set_default_dtype(torch.float16)
 torch.manual_seed(3133)
 np.random.seed(3331)
-device="cuda"
+# device="cuda"
+device = "cpu"
 
 data = torch.linspace(-np.pi, np.pi, device=device).reshape(-1, 1)
 labels = torch.sin(data) #.reshape(-1)

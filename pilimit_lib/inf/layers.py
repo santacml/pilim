@@ -245,12 +245,13 @@ class InfPiLinearReLU(nn.Module):
         self.device = device
         self.InfPiLinearReLUFunction = InfPiLinearReLUFunctionBuilder(layernorm=layernorm, cuda_batch_size=cuda_batch_size)
 
-        self.dynA = DynamicTensor(r_out, initsize=r, device=device, resizemult=1)
-        self.register_parameter(name='A', param=InfPiParameter(self.dynA, apply_lr=False, requires_grad=False, optim_mode=optim_mode))
-        self.dynAmult = DynamicTensor(None, initsize=r, device=device, dtype=torch.float32, resizemult=1)
-        self.register_parameter(name='Amult', param=InfPiParameter(self.dynAmult, apply_lr=True, lr_mult=layer_alpha, requires_grad=False, optim_mode=optim_mode))
-        self.dynB = DynamicTensor(r, initsize=r, device=device, resizemult=1)
-        self.register_parameter(name='B', param=InfPiParameter(self.dynB, apply_lr=False, requires_grad=False, optim_mode=optim_mode))
+        A = torch.zeros([r, r_out], device=device, requires_grad=True)
+        Amult = torch.zeros([r], device=device, requires_grad=True, dtype=torch.float32)
+        B = torch.zeros([r, r], device=device, requires_grad=True)
+        
+        self.register_parameter(name='A', param=InfPiParameter(A, apply_lr=False, requires_grad=False, optim_mode=optim_mode))
+        self.register_parameter(name='Amult', param=InfPiParameter(Amult, apply_lr=True, lr_mult=layer_alpha, requires_grad=False, optim_mode=optim_mode))
+        self.register_parameter(name='B', param=InfPiParameter(B, apply_lr=False, requires_grad=False, optim_mode=optim_mode))
         
         self.project()
 
@@ -289,11 +290,8 @@ class InfPiLinearReLU(nn.Module):
         self.Amult.set_pi_size(g_in.shape[0])
         self.B.set_pi_size(g_in.shape[0])
 
-
-        # bias = self.bias * self.bias_alpha if self.bias is not None else self.bias
         bias = (self.bias * self.bias_alpha) if self.bias_alpha else self.bias
         g_out = self.InfPiLinearReLUFunction.apply(g_in, self.A, self.Amult, self.B, self.A.pi, self.Amult.pi, self.B.pi, gbar_in, s_in, bias)
-        
         
         return g_out
 

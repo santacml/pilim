@@ -18,7 +18,8 @@ class FinPiParameter(torch.nn.Parameter):
 
 class InfPiParameter(torch.nn.Parameter):
     def __new__(cls, dyn_data, apply_lr=False, lr_mult=1, requires_grad=True, optim_mode="project"):
-        return super().__new__(cls, dyn_data.tensor() if isinstance(dyn_data, DynamicTensor) else dyn_data, requires_grad)
+        # return super().__new__(cls, dyn_data.tensor() if isinstance(dyn_data, DynamicTensor) else dyn_data, requires_grad)
+        return super().__new__(cls, dyn_data.tensor() if False else dyn_data, requires_grad)
 
     def __init__(self, dyn_data, apply_lr=False, lr_mult=1, requires_grad=True, optim_mode="project"):
         self.dyn_data = dyn_data
@@ -92,6 +93,10 @@ class InfPiParameter(torch.nn.Parameter):
         self.optim_mode = "direct"
         self.add_ = super().add_
 
+''' 
+
+# Unnecessary code - may come back to this concept if it's useful
+
 HANDLED_FUNCTIONS = {}
 class DynamicTensor(object):
     def __init__(self, r, resizemult=2, initsize=0, initbuffersize=1000, device="cpu", dtype=None):
@@ -139,7 +144,6 @@ class DynamicTensor(object):
         self._arr[self._size:self._size+size] = arr
         self._size += size
 
-        # self.tensor_arr = self._arr[:self._size]
         self._arr.requires_grad = True
 
     @classmethod
@@ -153,3 +157,5 @@ class DynamicTensor(object):
             args = [a.tensor() if hasattr(a, 'tensor') else a for a in args]
             return func(*args, **kwargs)
         return HANDLED_FUNCTIONS[func](*args, **kwargs)
+
+'''

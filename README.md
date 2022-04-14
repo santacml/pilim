@@ -26,6 +26,7 @@ Here are the things we are planning to add to the repo, in order of priority:
   - in-depth main testing/training file comments
   - Fix compare_mlp and _cifar10
   - refactor tensors
+- dependency lists for both libraries
 - Double-check command rerun for accuracy / upload saved .pkl version of each best model
 - Create easily usable pip package for pilimit_lib
 - Colab notebook for easy reproducibility
