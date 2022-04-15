@@ -41,14 +41,12 @@ Here are the things we are planning to add to the repo, in order of priority:
 High priority:
 - Document pilimit_orig
   - Updated FKR  results
-- Document pilimit_lib
-  - in-depth main testing/training file comments: cifar10, test_suite
-- review all docmentation and add details where appropriate (esp functional)
 - Double-check command rerun for accuracy / upload saved .pkl version of each best model
-- double-check pilimit_lib tests
+- double-check pilimit_lib tests functional
 
 
 Low priority items:
+- review all docmentation and add details where appropriate (esp functional.py)
 - Create pip package for pilimit_lib
 - Colab notebook for easy reproducibility
 - nicer dependency / conda env creation file
@@ -59,3 +57,4 @@ Low priority items:
   - Multiple activation functions
   - refactor gradient clipping
   - refactor storing pi in inf pi parameters, proj in fin pi params
+  - better cifar10/test_suite documentation

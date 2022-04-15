@@ -1,9 +1,16 @@
 '''
-Example training file on cifar10.
+  A simple cifar10 training and testing file with standard training arguments. 
+  Usage is extremely identical to pilimit_orig besides the file name.
+  Training arguments each have a short description.
+  It is recommended to use fp16 for speed and storage efficiency.
 
-This file is able to obtain extremely close results to the original paper, but slightly different,
-differences being from floating point rounding.
+  This file is able to obtain extremely close results to the original paper, but slightly different,
+  differences being from floating point rounding.
 
+  This version of training seems to be slightly faster, but less memory efficient than pilimit_lib.
+
+  This will NOT work in a multi-gpu environment.
+  For a full CIFAR10 InfPiMLP training run, 8-16gb of GPU VRAM is necessary.
 
 '''
 
@@ -14,12 +21,10 @@ import argparse
 from numpy.core.fromnumeric import clip
 import torch.nn.functional as nnF
 from torchvision import datasets, transforms
-from torch.optim import SGD
 import pandas as pd
 import time
 import os
 import torch
-from torch import nn
 from inf.layers import *
 from inf.optim import *
 from inf.utils import *
@@ -40,8 +45,6 @@ def main(arglst=None):
                       help='whether to save checkpoints')
   parser.add_argument('--model-path', type=str, default='',
                       help='location of model to load')
-  parser.add_argument('--teacher-path', type=str, default='',
-                      help='location of teacher model to distill from')
   parser.add_argument('--test', action='store_true',
                       help='Whether to only test the network')
   parser.add_argument('--cuda', action='store_true',
@@ -121,19 +124,16 @@ def main(arglst=None):
                       help='squash all prints')
   parser.add_argument('--seed', type=int, default=1,
                       help='random seed')
+
+  # these arguments unused in paper
   parser.add_argument('--data-augment', action='store_true',
                       help='augment the dataset by flipping and cropping')
-
   parser.add_argument('--cuda-batch-size', type=int, default=None,
                       help='batch to cuda')
-  parser.add_argument('--flatten-cuda-batch-size', type=int, default=None,
-                      help='batch flatten layer to cuda')
-                      
-  parser.add_argument('--accum-steps', type=int, default=1,
-                      help='grad accumulation steps')
-  # parser.add_argument('--proj-size', type=int, default=0,
-  #                     help='test proj size')
-  
+  parser.add_argument('--accum-steps', type=int, default=1, 
+                      help='grad accumulation steps for smaller batch size')
+  parser.add_argument('--teacher-path', type=str, default='',
+                      help='location of teacher model to distill from')
   parser.add_argument('--teacher-alpha', type=float, default=.5,
                       help='teacher alpha')
   parser.add_argument('--teacher-temp', type=float, default=1,
@@ -193,6 +193,7 @@ def main(arglst=None):
             'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
   def get_loss(output, target, teacher_output=None, reduction='mean', teacher_alpha=.3, teacher_temp=1):
+    # we only ever use xent
     if args.loss == 'xent':
       loss = nnF.cross_entropy(output, target, reduction=reduction)
     elif args.loss == 'mse':
@@ -210,9 +211,32 @@ def main(arglst=None):
         loss = teacher_alpha * loss + (1 - teacher_alpha) * ditillation_loss
     return loss
 
-  def train_nn(model, device, train_loader, optimizer, epoch, Gproj=True,
-              log_interval=100, gclip_sch=False, max_batch_idx=None,
-              lr_gain=0, scheduler=None, teacher=None):
+  def train_nn(
+      model, 
+      device, 
+      train_loader, 
+      optimizer, 
+      epoch, 
+      log_interval=100, 
+      gclip_sch=False, 
+      max_batch_idx=None,
+      scheduler=None, 
+      teacher=None):
+      '''
+      Main training loop for one epoch.
+
+      Inputs;
+        model: the model to use
+        device: torch device to send data to
+        train_loader: torch dataloader for training
+        optimizer: the optimizer
+        epoch: what epoch we are on (for scheduling)
+        log_interval: how often to log if args.human
+        gclip_sch: gradient clipping schedule
+        max_batch_idx: hard stop batch idx,
+        scheduler: lr scheduler, 
+        teacher: teacher for distillation (not used in paper)
+      '''
       model.train()
       train_loss = 0
       losses = []
@@ -225,14 +249,13 @@ def main(arglst=None):
       clip_time = 0
       step_time = 0
 
-      orig_grad = 0
-
       for batch_idx, (data, target) in enumerate(train_loader):
         if max_batch_idx is not None and batch_idx > max_batch_idx:
             break
         n = batch_idx + 1
         data, target = data.to(device).type(torch.get_default_dtype()), target.to(device)
 
+        # 0 grad if we reach accum steps 
         if batch_idx % args.accum_steps == 0:
           optimizer.zero_grad()
         
@@ -252,7 +275,6 @@ def main(arglst=None):
         backward_time = backward_time * (n-1)/n + (time.time() - start) / n
 
         if batch_idx % args.accum_steps == 0:
-
           start = time.time()
           if gclip_sch and gclip_sch.gclip > 0:
               store_pi_grad_norm_(model.modules())
@@ -269,8 +291,6 @@ def main(arglst=None):
           optimizer.step()
 
           step_time = step_time * (n-1)/n + (time.time() - start) / n
-          if lr_gain > 0:
-              optimizer.param_groups[0]['lr'] += lr_gain / nbatches
         
 
         train_loss += get_loss(output, target, reduction='sum').item()  # sum up batch loss
@@ -308,6 +328,9 @@ def main(arglst=None):
       return losses, train_acc
 
   def test_nn(model, device, test_loader):
+      '''
+      Test a model on a dataset (for validation/testing).
+      '''
       model.eval()
       test_loss = 0
       correct = 0
@@ -359,7 +382,7 @@ def main(arglst=None):
 
   mynet = None
   if args.width is None:
-
+    # note we collect parameters to use in optimizer for both inf and finite networks.
     paramgroups = []
     # first layer weights
     paramgroups.append({
@@ -490,7 +513,7 @@ def main(arglst=None):
 
   for epoch in range(1, args.epochs+1):
     epoch_start = time.time()
-    losses, train_acc = train_nn(mynet, device, train_loader, optimizer, epoch, Gproj=True, gclip_sch=gclip_sch, scheduler=sch, teacher=teacher)
+    losses, train_acc = train_nn(mynet, device, train_loader, optimizer, epoch, gclip_sch=gclip_sch, scheduler=sch, teacher=teacher)
     epoch_end = time.time()
     epoch_time = epoch_end - epoch_start
     train_losses.append(losses)
@@ -498,6 +521,7 @@ def main(arglst=None):
     test_loss, test_acc = test_nn(mynet, device, test_loader)
     test_losses.append(test_loss)
     test_accs.append(test_acc)
+    
     if args.save_model: # and test_acc == min(test_accs)
       model_path = os.path.join(args.save_dir, 'checkpoints')
       os.makedirs(model_path, exist_ok=True)
