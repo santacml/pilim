@@ -79,4 +79,6 @@ FinPiLinearReLU also uses a special parameter subclass called FinPiParameter, fr
 
 For both finite and infinite width pi-networks, certain things need to happen in the gradient update that are abnormal. For infinite-width networks this means appending the gradient instead of accumulating it, and for finite-width networks this means projecting the gradient before accumulating it.
 
-Both of these cases are handled inside [optim.py](inf/optim.py), where a custom PiSGD optimizer detects if a parameters is one of these two classes for appropriate action. In the future, we'd like to refactor this so other optimizers can be easily used.
+In both the finite or infinite-width cases, special variables are stored as attributes in the parameters themselves. This is not desirable for a variety of reasons, and we plan to refactor (especially gradient clipping, where temporary norms for A*B are stored in the A parameter). But for now, they are functional.
+
+The special logic for updating finite and infinite parameters are handled inside [optim.py](inf/optim.py), where a custom PiSGD optimizer detects if a parameters is one of these two classes for appropriate action. In the future, we'd like to refactor this so other optimizers can be easily used.
