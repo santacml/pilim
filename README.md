@@ -39,20 +39,19 @@ pip install ipywidgets
 Here are the things we are planning to add to the repo, in order of priority:
 
 High priority:
-- Document pilimit_orig
-  - Updated FKR  results
+- Updated FKR  results
 - Double-check command rerun for accuracy / upload saved .pkl version of each best model
-- double-check pilimit_lib tests functional
+- double-check pilimit_lib tests still work after refactor
 
 
-Low priority items:
+Low priority items / known issues:
 - review all docmentation and add details where appropriate (esp functional.py)
 - Create pip package for pilimit_lib
 - Colab notebook for easy reproducibility
 - nicer dependency / conda env creation file
 - pilimit_lib extensions / refactors
   - refactor finite net to use activation inside layer?
-  - Fix compare_mlp and _cifar10
+  - Fix compare_mlp and _cifar10 (they are currently broken due to dependencies)
   - Separate layernorm layer in pilimit_lib
   - Multiple activation functions
   - refactor gradient clipping
