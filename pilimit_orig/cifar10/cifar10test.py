@@ -183,13 +183,14 @@ def main(arglst=None):
         labels.append(to_one_hot(target).cpu().double())
     # shape (dataset_size, r)
     feats = torch.cat(g)
+    del g
     # shape (dataset_size, 10)
     labels = torch.cat(labels)
     ker = feats @ feats.T
     del feats
-    del g
     # del infnet
     torch.cuda.empty_cache()
+    print("made it past kernel creation")
 
     
     # ker = 0.5 * J1(ker.cpu().double())
