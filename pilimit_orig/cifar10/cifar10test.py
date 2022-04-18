@@ -23,6 +23,7 @@ import time
 import itertools
 from tqdm import tqdm
 import os
+from opt_einsum import contract
 
 
 def to_one_hot(target, center=True):
@@ -215,8 +216,11 @@ def main(arglst=None):
       # ss = torch.flatten(torch.cat(s))
       # ker = ss[None, :] * ss[:, None] * ker
     else:
-      D = torch.diag(ker)
-      ker = .5 * D[:, None]**(-1/2) * D[None, :]**(-1/2) * ker
+      D = torch.diag(ker)**(-1/2)
+      # ker = .5 * D[:, None]**(-1/2) * D[None, :]**(-1/2) * ker
+
+      # save memory hopefully
+      ker = .5 * contract("kr, k, r -> kr", ker, D, D)
 
     print("kernel", ker)
     print("kernel diag", torch.diag(ker))
