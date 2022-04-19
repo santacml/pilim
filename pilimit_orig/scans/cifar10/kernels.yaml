@@ -43,9 +43,9 @@ search:
   # max_trials: 4
   # max_trials: 702
   # max_trials: 500
-  max_trials: 1
+  # max_trials: 1
   # max_trials: 350
-  # max_trials: 100
+  max_trials: 100
   # max_trials: 50
   params:
     # - name: r
@@ -64,7 +64,10 @@ search:
       spec: discrete
       # pinet and munet epoch 0
       values: [
-               '7350567242.19066-ab0ed6f3-14e5-44c3-a5be-548da7ae4ed1/2', # large net
+              '7349673110.05350-d0a7f60f-5727-43be-927a-915c6cd0ef71/2', # 25k
+              '7349673110.05487-01430794-c2be-4c92-9f11-6d5ffabbf502/2', #20k
+
+              #  '7350567242.19066-ab0ed6f3-14e5-44c3-a5be-548da7ae4ed1/2', # large net 32k
               #  '7350566325.82644-9a89d35b-ae68-4175-8374-e50935878479/2', # infnet
               #  '7350567242.18552-27cd01d2-c99c-4441-93a9-e2918f6a0b76/2',
               #  '7350567242.18680-4e29e327-60a3-4daa-a021-57aeb6b0050f/2',
