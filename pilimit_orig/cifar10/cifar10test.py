@@ -335,7 +335,6 @@ def main(arglst=None):
 
 
     for reg in regs:
-      reg = args.kernel_reg
       idx = list(range(ker.shape[0]))
       ker[idx, idx] += reg
       N = 50000 
