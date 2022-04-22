@@ -39,7 +39,6 @@ pip install ipywidgets
 Here are the things we are planning to add to the repo, in order of priority:
 
 High priority:
-- Updated FKR  results
 - Double-check command rerun for accuracy / upload saved .pkl version of each best model
 - double-check pilimit_lib tests still work after refactor
 

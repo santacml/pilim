@@ -1154,7 +1154,7 @@ if __name__ == '__main__':
   X = torch.cat([X, torch.ones_like(X)], dim=1)
   X = X#.double()
   y = y#.double()
-  net = InfPiMLP(d=2, dout=1, L=1, r=2, initbuffersize=1000)
+  net = InfPiMLP(d=2, dout=1, L=1, r=2, initbuffersize=1000, first_layer_alpha=2, last_layer_alpha=23, bias_alpha=4)
 
   lr = 0.01
   for i in range(10):
@@ -1168,13 +1168,16 @@ if __name__ == '__main__':
     net.step(lr)
 
   
-  # mynet = net.sample(2048)
+  mynet = net.sample(2048)
   # out = mynet(X)
   # print(out) 
-  # with open("./test", 'wb') as f:
-  #   torch.save(mynet, f)
+  with open("./test", 'wb') as f:
+    torch.save(mynet, f)
     
-  # newnet = torch.load("./test")
+  newnet = torch.load("./test")
+  print(newnet.first_layer_alpha)
+  print(newnet.last_layer_alpha)
+  print(newnet.bias_alpha)
 
   # print("diff", newnet(X) - out)
 
