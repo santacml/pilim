@@ -38,12 +38,8 @@ pip install ipywidgets
 
 Here are the things we are planning to add to the repo, in order of priority:
 
-High priority:
-- Double-check command rerun for accuracy / upload saved .pkl version of each best model
+- double-check command rerun for accuracy / upload saved .pkl version of each best model
 - double-check pilimit_lib tests still work after refactor
-
-
-Low priority items / known issues:
 - review all docmentation and add details where appropriate (esp functional.py)
 - Create pip package for pilimit_lib
 - Colab notebook for easy reproducibility
