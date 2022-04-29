@@ -1,10 +1,11 @@
 description: PiLimit Kernels Cifar10
 
 target:
-  service: amlk8s
+  service: sing
   # name: ms-shared
   # name: itpeusp100cl
-  name: itplabrr1cl1
+  # name: itplabrr1cl1
+
 
 environment:
   image: pytorch/pytorch:1.9.0-cuda10.2-cudnn7-devel

@@ -45,6 +45,7 @@ Here are the things we are planning to add to the repo, in order of priority:
 - Colab notebook for easy reproducibility
 - nicer dependency / conda env creation file
 - pilimit_lib extensions / refactors
+  - pilimit_lib maml implementation
   - refactor finite net to use activation inside layer?
   - Fix compare_mlp and _cifar10 (they are currently broken due to dependencies)
   - Separate layernorm layer in pilimit_lib
