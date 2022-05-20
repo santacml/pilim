@@ -38,18 +38,21 @@ pip install ipywidgets
 
 Here are the things we are planning to add to the repo, in order of priority:
 
+High priority:
+- Colab notebook for easy reproducibility
 - double-check command rerun for accuracy / upload saved .pkl version of each best model
 - double-check pilimit_lib tests still work after refactor
-- review all docmentation and add details where appropriate (esp functional.py)
-- Create pip package for pilimit_lib
-- Colab notebook for easy reproducibility
+- pilimit_lib maml implementation
 - nicer dependency / conda env creation file
+
+
+Post release:
+- Create pip package for pilimit_lib
 - pilimit_lib extensions / refactors
-  - pilimit_lib maml implementation
   - refactor finite net to use activation inside layer?
   - Fix compare_mlp and _cifar10 (they are currently broken due to dependencies)
   - Separate layernorm layer in pilimit_lib
   - Multiple activation functions
   - refactor gradient clipping
-  - refactor storing pi in inf pi parameters, proj in fin pi params
+  - refactor storing pi in inf pi parameters, proj in fin pi params?
   - better cifar10/test_suite documentation

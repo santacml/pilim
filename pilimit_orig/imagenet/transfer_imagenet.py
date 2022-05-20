@@ -51,12 +51,6 @@ def get_feature_kernel_and_labels(net, dataloader, num_cls=10, normalize=False):
 
         g.append(kernel_output.double())
         labels.append(to_one_hot(target, num_cls=num_cls).double())
-      elif isinstance(net, ResNet):
-        _ = net(data, save_kernel_output=True)
-        # g.append(net.kernel_output.cpu().double())
-
-        g.append(net.kernel_output.double().cpu())
-        labels.append(to_one_hot(target, num_cls=num_cls).double().cpu())
       else:
         raise "Undetermined model type for kernel creation."
 
