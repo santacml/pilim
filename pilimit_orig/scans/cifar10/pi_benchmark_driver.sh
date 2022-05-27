@@ -37,8 +37,8 @@ do
             --first-layer-alpha $first_layer_alpha \
             --last-layer-alpha $last_layer_alpha \
             --no-apply-lr-mult-to-wd"
-    # IO_ARGS="--save-dir $savedir/$depth --save-model"
-    IO_ARGS="--save-dir $savedir/$depth"
+    IO_ARGS="--save-dir $savedir/$depth --save-model"
+    # IO_ARGS="--save-dir $savedir/$depth"
     OPTIM_ARGS="--lr $lr \
                 --gclip-per-param \
                 --gclip $gclip \

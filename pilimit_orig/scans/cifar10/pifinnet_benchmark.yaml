@@ -37,8 +37,8 @@ search:
       --seed {seed}
       --savedir $$PT_OUTPUT_DIR
   type: grid
-  # max_trials: 1
-  max_trials: 50
+  max_trials: 1
+  # max_trials: 50
   params:
     - name: gclip
       spec: discrete
