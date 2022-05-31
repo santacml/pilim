@@ -169,8 +169,9 @@ class MetaInfMLP(PiNet):
             if n == self.L+1: 
                 g *= self.last_layer_alpha
             gs.append(g.clone())
-            ss.append(s.clone())
-            qs.append(q.clone())
+            if n > 0: # offset by 1 as we don't need ss and qs for last layer - each layer returns s and q for the input
+                ss.append(s.clone())
+                qs.append(q.clone())
 
         return gs, ss, qs
         
@@ -241,8 +242,8 @@ class MetaInfMLPOps(object):
         '''
         Delete the stored gradient for the network.
         '''
-        self.dAs[1].zero_()
-        for l in range(2, self.L+2):
+        self.dAs[0].zero_()
+        for l in range(1, self.L+2):
             self.dBs[l] = []
             self.dAs[l] = []
         if self.dbiases is not None:
@@ -253,7 +254,7 @@ class MetaInfMLPOps(object):
         '''
         Delete only the readout gradient for the network.
         '''
-        L = self.L
+        L = self.infnet.L
         for d in list(self.dAs[L+1]) + list(self.dBs[L+1]):
             d.zero_()
         if self.dbiases is not None:
@@ -265,26 +266,41 @@ class MetaInfMLPOps(object):
         Checkpoint all of the parameters in the network.
         '''
         with torch.no_grad():
-            self.A1_chkpt = self.As[1].clone()
-            if self.biases is not None:
-                self.biases_chkpt = {k: v.clone() for k, v in self.biases.items()}
-        for l in range(2, self.L+2):
-            self.As[l].checkpoint()
-            self.Amult[l].checkpoint()
-            self.Bs[l].checkpoint()
+            self.A1_chkpt = self.infnet.layers[0].A.clone()
+            if self.infnet.layers[0].bias is not None:
+                # self.biases_chkpt = {k: v.clone() for k, v in self.biases.items()}
+                self.biases_chkpt = {}
+                for l in range(0, self.L+2):
+                    self.biases_chkpt[l] = self.infnet.layers[l].bias.clone()
+
+        for l in range(1, self.L+2):
+            self.infnet.layers[l].A.checkpoint()
+            self.infnet.layers[l].Amult.checkpoint()
+            self.infnet.layers[l].B.checkpoint()
 
     def restore(self):
         '''
         Restore all of the parameters in the network from the latest checkpoint.
         '''
-        self.As[1][:] = self.A1_chkpt
-        for l in range(2, self.L+2):
-            self.As[l].restore()
-            self.Amult[l].restore()
-            self.Bs[l].restore()
-        if self.biases is not None:
-            for l in range(1, self.L+2):
-                self.biases[l][:] = self.biases_chkpt[l]
+        self.infnet.layers[0].A[:] = self.A1_chkpt
+        for l in range(1, self.L+2):
+            self.infnet.layers[l].A.restore()
+            self.infnet.layers[l].Amult.restore()
+            self.infnet.layers[l].B.restore()
+        if self.infnet.layers[0].bias is not None:
+            for l in range(0, self.L+2):
+                self.infnet.layers[l].bias[:] = self.biases_chkpt[l]
+
+    def assign_intermediate(self, X, gs, gbars, qs, ss, out):
+        '''
+        Assign intermediate outputs from the network for MAML purposes.
+        '''
+        self.X = X
+        self.gs = gs
+        self.gbars = gbars
+        self.qs = qs
+        self.ss = ss
+        self.out = out
 
     def save_intermediate(self, out_grad):
         '''
@@ -324,11 +340,11 @@ class MetaInfMLPOps(object):
             if self.dbiases is not None:
                 dbiases = buffer[2]
         
-        L = self.L
+        L = self.infnet.L
         if self.layernorm:
             s = 1
         else:
-            s = self.ss[L]
+            s = self.ss[L+1]
         dAs[L+1].append(delta * s * self.last_layer_alpha)
         dBs[L+1].append(self.gbars[L])
         if self.dbiases is not None:
@@ -338,14 +354,14 @@ class MetaInfMLPOps(object):
         '''
         Create new gradient buffers for MAML.
         '''
-        dAs = {1: torch.zeros_like(self.infnet.layers[0].A)}
+        dAs = {0: torch.zeros_like(self.infnet.layers[0].A)}
         dBs = {}
-        for l in range(1, self.L+2):
+        for l in range(1, self.L+3):
             dAs[l] = []
             dBs[l] = []
         if self.infnet.layers[0].bias is not None:
             dbiases = {}
-            for l in range(0, self.L+1):
+            for l in range(1, self.L+2):
                 dbiases[l] = torch.zeros_like(self.infnet.layers[l].bias)
             return dAs, dBs, dbiases
         return dAs, dBs
@@ -363,11 +379,26 @@ class MetaInfMLPOps(object):
             del dBs[l][:]
         if self.infnet.layers[0].bias is not None:
             dbiases = buffer[2]
-            for l in range(0, self.L+1):
+            for l in range(0, self.L+2):
                 dbiases[l].zero_()
             return dAs, dBs, dbiases
         return dAs, dBs
 
+    @torch.no_grad()
+    def assign_pi_grad(self):
+        '''
+        assign pi grads from dAs and dBs into network
+        '''
+        self.infnet.layers[0].A.grad[:] = self.dAs[0]
+
+        for n in range(1, self.infnet.L+1):
+            dA = torch.cat(self.dAs[n])
+            dB = torch.cat(self.dBs[n])
+
+            self.infnet.layers[n].A.set_pi_size(dA.shape[0])
+            self.infnet.layers[n].A.pi[:] = dA
+            self.infnet.layers[n].B.set_pi_size(dB.shape[0])
+            self.infnet.layers[n].B.pi[:] = dB
 
 
     def backward_somaml(self, delta, buffer=None, readout_fixed_at_zero=False):
@@ -386,20 +417,20 @@ class MetaInfMLPOps(object):
         # if readout weights and biases are fixed at 0, then
         # no gradient through loss derivatives of step 1
             return
-        L = self.L
-        ckpt = self.As[L+1]._checkpoint
+        L = self.infnet.L
+        ckpt = self.infnet.layers[L+1].A.checkpoint_size
         
         # Below, B is test batch and B' was train batch for 2nd order maml
         # shape (B, B')
         q = F00ReLUsqrt(self.qs[L+1][:, ckpt:], self.ss_[L].T, self.ss[L])
         # multiply by the multipliers on loss derivatives from train batch
-        q *= self.Amult[L+1].a[ckpt:].flatten() * self.last_layer_alpha
+        q *=  self.infnet.layers[L+1].Amult[L+1][ckpt:].flatten() * self.last_layer_alpha
         # shape (B', dout)
         c = q.T @ delta
         # self.restore()
-        self.As[L+1].restore()
-        self.Amult[L+1].restore()
-        self.Bs[L+1].restore()
+        self.infnet.layers[L+1].A.restore()
+        self.infnet.layers[L+1].Amult.restore()
+        self.infnet.layers[L+1].B.restore()
         # shape (B', dout)
         delta2 = torch.autograd.grad(
                     self.out_grad_,
@@ -457,16 +488,22 @@ class MetaInfMLPOps(object):
         if qs is None:
             qs = self.qs
         if As is None:
-            As = self.As
+            # As = self.As
+            As = {}
+            for n in range(0, self.infnet.L+2):
+                As[n] = self.infnet.layers[n].A.clone()
         if Bs is None:
-            Bs = self.Bs
+            # Bs = self.Bs
+            Bs = {}
+            for n in range(1, self.infnet.L+2):
+                Bs[n] = self.infnet.layers[n].B.clone()
         if X is None:
             X = self.X
 
         # (B, M)
         if not somaml:
-            self.dgammas[L+1] = delta @ As[L+1].a.T \
-                * self.Amult[L+1].a.type_as(delta) * self.last_layer_alpha
+            self.dgammas[L+1] = delta @ As[L+1].T \
+                *  self.infnet.layers[L+1].Amult.type_as(delta) * self.last_layer_alpha
         else:
             ckpt = As[L+1]._checkpoint
             # (B', B)
@@ -476,7 +513,7 @@ class MetaInfMLPOps(object):
                 # (dout, B')
                 @ self.out_grad_.detach().T \
                 # Amult contains lr used in train batch
-                * self.Amult[L+1].a[ckpt:].type_as(delta) \
+                * self.infnet.layers[L+1].Amult[ckpt:].type_as(delta) \
                 # 1 copy from train backprop, 1 copy from test backprop
                 * self.last_layer_alpha**2
             # using self.ss here for the ss on test batch
@@ -499,7 +536,7 @@ class MetaInfMLPOps(object):
                 q = self.qs[l][:, ckpt:].T
             else:
                 # (M, r)
-                B = Bs[l].a
+                B = Bs[l]
                 q = qs[l]
             # (B', M')
             self.dalpha02s[l] = F02ReLUsqrt(q, 1, s)
@@ -516,8 +553,8 @@ class MetaInfMLPOps(object):
                 self._dAs[l-1] -= drho[:, None] * g
                 self._dAs[l-1] /= ss[l-1]
             if l > 2:
-                self.dgammas[l-1] = self._dAs[l-1] @ As[l-1].a.T \
-                    * self.Amult[l-1].a.type_as(delta)
+                self.dgammas[l-1] = self._dAs[l-1] @ As[l-1].T \
+                    * self.infnet.layers[l-1].Amult.type_as(delta)
 
         
         # accumulate gradients

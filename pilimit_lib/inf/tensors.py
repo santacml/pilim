@@ -146,6 +146,11 @@ class InfPiParameter(torch.nn.Parameter):
         self.pi = torch.zeros(shape, requires_grad=True, device=self.device, dtype=self.dtype)
         self.pi.retain_grad()
 
+    def checkpoint(self):
+        self.checkpoint_size = self.data.shape[0]
+
+    def restore(self):
+        self.data = self.data[:self.checkpoint_size]
 
 ''' 
 

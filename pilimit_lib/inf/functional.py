@@ -365,8 +365,8 @@ def InfPiLinearReLUFunctionBuilder(layernorm=False, cuda_batch_size=None, return
             if bias is not None and ctx.needs_input_grad[9]: # bias
                 grad_bias_in = grad_g_out.sum(dim=0)
 
-            if q_in is not None and ctx.needs_input_grad[10]: # q_in
-                raise NotImplementedError()
+            # if q_in is not None and ctx.needs_input_grad[10]: # q_in
+                # raise NotImplementedError()
 
             return grad_g_in, grad_A_in, grad_Amult_in, grad_B_in, grad_A_pi, grad_Amult_pi, grad_B_pi, grad_gbar_in, grad_s_in, grad_bias_in
 

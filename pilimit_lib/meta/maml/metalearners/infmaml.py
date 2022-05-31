@@ -100,13 +100,17 @@ class InfMAML(MAML):
         if dobackward:
           outer_loss.backward()
           if self.first_order:
-            self.model.backward(test_logits.grad, buffer=self.metagrads)
+            # self.model.backward(test_logits.grad, buffer=self.metagrads)
+            self.metaops.backward(test_logits.grad, buffer=self.metagrads)
           else:
-            self.model.backward_somaml(test_logits.grad, buffer=self.metagrads, readout_fixed_at_zero=self.readout_fixed_at_zero)
-        self.model.restore()
+            # self.model.backward_somaml(test_logits.grad, buffer=self.metagrads, readout_fixed_at_zero=self.readout_fixed_at_zero)
+            self.metaops.backward_somaml(test_logits.grad, buffer=self.metagrads, readout_fixed_at_zero=self.readout_fixed_at_zero)
+        # self.model.restore()
+        self.metaops.restore()
         if not self.first_order:
           # release memory from saved intermediates
-          self.model.del_intermediate()
+          # self.model.del_intermediate()
+          self.metaops.del_intermediate()
         # END CHANGE
 
         if is_classification_task:
@@ -144,17 +148,22 @@ class InfMAML(MAML):
       logit_grad = torch.autograd.grad(inner_loss,
                           [logits], create_graph=not first_order)[0]
       if not first_order:
-        self.model.save_intermediate(logit_grad)
+        # self.model.save_intermediate(logit_grad)
+        self.metaops.save_intermediate(logit_grad)
       # inner_loss.backward()
-      self.model.zero_grad()
+      # self.model.zero_grad()
+      self.metaops.zero_grad()
       if not self.adapt_readout_only:
-        self.model.backward(logit_grad.detach())
+        # self.model.backward(logit_grad.detach())
+        self.metaops.backward(logit_grad.detach())
       else:
         # import pdb; pdb.set_trace()
-        self.model.readout_backward(logit_grad.detach())
+        # self.model.readout_backward(logit_grad.detach())
+        self.metaops.readout_backward(logit_grad.detach())
       if self.no_adapt_readout:
         # print('no adapt')
-        self.model.zero_readout_grad()
+        # self.model.zero_readout_grad()
+        self.metaops.zero_readout_grad()
         # ###
         # self.model.zero_embed_grad()
         # ###
@@ -182,8 +191,10 @@ class InfMAML(MAML):
 
         ### CHANGE
         # self.optimizer.zero_grad()
-        self.model.resetbuffer(self.metagrads)
-        self.model.checkpoint()
+        # self.model.resetbuffer(self.metagrads)
+        self.metaops.resetbuffer(self.metagrads)
+        # self.model.checkpoint()
+        self.metaops.checkpoint()
         ### END CHANGE
 
 
@@ -216,7 +227,8 @@ class InfMAML(MAML):
 
         batch = tensors_to_device(batch, device=self.device)
         ### CHANGE
-        self.model.checkpoint()
+        # self.model.checkpoint()
+        self.metaops.checkpoint()
         _, results = self.get_outer_loss(batch, dobackward=False, nilmax=nilmax)
         ### END CHANGE
         yield results
