@@ -239,7 +239,7 @@ def inf_linear_backward(
 
 
 
-def InfPiLinearReLUFunctionBuilder(layernorm=False, cuda_batch_size=None):
+def InfPiLinearReLUFunctionBuilder(layernorm=False, cuda_batch_size=None, return_hidden=False):
     '''
     Dynamically create either a regular InfPiLinearReLUFunction,
     or one that batches operations along an axis to the GPU.
@@ -303,6 +303,8 @@ def InfPiLinearReLUFunctionBuilder(layernorm=False, cuda_batch_size=None):
             # gbar_out = g_out / s_out
             # ctx.mark_non_differentiable(s_out, gbar_out)
 
+            if return_hidden:
+                return g_out, q_in, s_in
             return g_out
 
         @staticmethod
@@ -362,6 +364,9 @@ def InfPiLinearReLUFunctionBuilder(layernorm=False, cuda_batch_size=None):
 
             if bias is not None and ctx.needs_input_grad[9]: # bias
                 grad_bias_in = grad_g_out.sum(dim=0)
+
+            if q_in is not None and ctx.needs_input_grad[10]: # q_in
+                raise NotImplementedError()
 
             return grad_g_in, grad_A_in, grad_Amult_in, grad_B_in, grad_A_pi, grad_Amult_pi, grad_B_pi, grad_gbar_in, grad_s_in, grad_bias_in
 
@@ -492,6 +497,8 @@ def InfPiLinearReLUFunctionBuilder(layernorm=False, cuda_batch_size=None):
             return grad_g_in, grad_A_in, grad_Amult_in, grad_B_in, grad_A_pi, grad_Amult_pi, grad_B_pi, grad_gbar_in, grad_s_in, grad_bias_in
 
     if cuda_batch_size is not None:
+        if return_hidden:
+            raise NotImplementedError("Batched operations not implemented for MAML.")
         return BatchedInfPiLinearReLUFunction
     else:
         return InfPiLinearReLUFunction

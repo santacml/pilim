@@ -126,7 +126,8 @@ class InfPiInputLinearReLU(nn.Module):
             r_out=None, 
             bias_alpha=1, 
             layernorm=False, 
-            device="cpu"):
+            device="cpu",
+            return_hidden=False):
         '''
         Infinite-width input layer to a pi-net, with ReLU activation.
 
@@ -154,6 +155,7 @@ class InfPiInputLinearReLU(nn.Module):
         self.register_buffer("bias_alpha", torch.tensor(bias_alpha, dtype=torch.get_default_dtype()))
         self.layernorm = layernorm # does nothing for inf input as layernorm affects downstream layer
         self.device = device
+        self.return_hidden = return_hidden
 
         self.A = nn.Parameter(torch.randn(r, r_out, device=device, dtype=torch.float32))
         
@@ -182,7 +184,10 @@ class InfPiInputLinearReLU(nn.Module):
         if self.bias is not None:
             g_out += (self.bias.unsqueeze(0) * self.bias_alpha).type_as(g_out)
 
-        return g_out
+        if self.return_hidden:
+            return g_out, None, None
+        else:
+            return g_out
 
     def sample(self, n_in, n_out):
         '''
@@ -351,7 +356,8 @@ class InfPiLinearReLU(nn.Module):
             layernorm=False, 
             optim_mode="project", 
             device="cpu", 
-            cuda_batch_size=None):
+            cuda_batch_size=None,
+            return_hidden=False):
         super(InfPiLinearReLU, self).__init__()
         '''
         Infinite-width layer for a pi-net, with ReLU activation.
@@ -375,6 +381,7 @@ class InfPiLinearReLU(nn.Module):
                 operations from cpu to gpu in chunks of fixed size.
                 This means the net can run for much longer (until RAM runs out),
                 but is very, very, very slow.
+            return_hidden: return hidden states for meta-learning
         '''
 
         self.r = r
@@ -388,7 +395,8 @@ class InfPiLinearReLU(nn.Module):
         self.register_buffer("layer_alpha", torch.tensor(layer_alpha, dtype=torch.get_default_dtype()))
         self.layernorm = layernorm
         self.device = device
-        self.InfPiLinearReLUFunction = InfPiLinearReLUFunctionBuilder(layernorm=layernorm, cuda_batch_size=cuda_batch_size)
+        self.InfPiLinearReLUFunction = InfPiLinearReLUFunctionBuilder(layernorm=layernorm, cuda_batch_size=cuda_batch_size, return_hidden=return_hidden)
+        self.return_hidden = return_hidden
 
         A = torch.zeros([r, r_out], device=device, requires_grad=True)
         # Amult stores lr and momentum in float32 format to ensure accuracy.
@@ -451,9 +459,13 @@ class InfPiLinearReLU(nn.Module):
         self.B.set_pi_size(g_in.shape[0])
 
         bias = (self.bias * self.bias_alpha) if self.bias_alpha else self.bias
-        g_out = self.InfPiLinearReLUFunction.apply(g_in, self.A, self.Amult, self.B, self.A.pi, self.Amult.pi, self.B.pi, gbar_in, s_in, bias)
-        
-        return g_out
+
+        if self.return_hidden:
+            g_out, q_in, s_in = self.InfPiLinearReLUFunction.apply(g_in, self.A, self.Amult, self.B, self.A.pi, self.Amult.pi, self.B.pi, gbar_in, s_in, bias)
+            return g_out, q_in, s_in    
+        else:
+            g_out = self.InfPiLinearReLUFunction.apply(g_in, self.A, self.Amult, self.B, self.A.pi, self.Amult.pi, self.B.pi, gbar_in, s_in, bias)
+            return g_out    
 
     def sample(self, n_in, n_out, prev_omega=None):
         '''
