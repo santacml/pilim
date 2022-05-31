@@ -229,6 +229,10 @@ class MetaInfMLPOps(object):
         '''
         A class for infnet operations specific to meta-learning like gradient loading/deleting, checkpointing, etc.
 
+        Backwards is completely rewritten - in the future, would be nice to use autograd for all this somehow.
+
+        For now, implementation would be difficult, so just do all this manually.
+
         '''
         self.infnet = infnet
 
@@ -363,3 +367,189 @@ class MetaInfMLPOps(object):
                 dbiases[l].zero_()
             return dAs, dBs, dbiases
         return dAs, dBs
+
+
+
+    def backward_somaml(self, delta, buffer=None, readout_fixed_at_zero=False):
+        '''
+        Input:
+        delta: (batch, dout) loss derivative
+        buffer: Used for metalearning. If not None, then backprop into `buffer` instead. Should be a pair (dAs, dBs), as returned by `newgradbuffer`.
+        readout_fixed_at_zero: no gradient after readout if they are 0
+        '''
+        # first order backward
+        self.backward(delta, buffer=buffer)
+        # backward through the step 1 final embeddings in the last layer gradients
+        self._backward_somaml(delta, buffer=buffer)
+        # # backward through loss derivatives of step 1
+        if readout_fixed_at_zero:
+        # if readout weights and biases are fixed at 0, then
+        # no gradient through loss derivatives of step 1
+            return
+        L = self.L
+        ckpt = self.As[L+1]._checkpoint
+        
+        # Below, B is test batch and B' was train batch for 2nd order maml
+        # shape (B, B')
+        q = F00ReLUsqrt(self.qs[L+1][:, ckpt:], self.ss_[L].T, self.ss[L])
+        # multiply by the multipliers on loss derivatives from train batch
+        q *= self.Amult[L+1].a[ckpt:].flatten() * self.last_layer_alpha
+        # shape (B', dout)
+        c = q.T @ delta
+        # self.restore()
+        self.As[L+1].restore()
+        self.Amult[L+1].restore()
+        self.Bs[L+1].restore()
+        # shape (B', dout)
+        delta2 = torch.autograd.grad(
+                    self.out_grad_,
+                    [self.out_],
+                    c)[0].detach()
+        self._backward(delta2, buffer=buffer,
+                    gbars=self.gbars_, ss=self.ss_, gs=self.gs_, qs=self.qs_,
+                    X=self.X_)
+
+    def _backward_somaml(self, delta, buffer=None):
+        '''
+        Backprop through the step 1 final embeddings in the last layer gradients
+        '''
+        self._backward(delta, buffer,
+                    gbars=self.gbars_, ss=self.ss_, gs=self.gs_, qs=self.qs_,
+                    X=self.X_, somaml=True)
+
+    def backward(self, delta, buffer=None):
+        '''
+        Call backwards.
+
+        Input:
+        delta: (batch, dout) loss derivative
+        buffer: Used for metalearning. If not None, then backprop into `buffer` instead. Should be a pair (dAs, dBs), as returned by `newgradbuffer`.
+        '''
+        self._backward(delta, buffer)
+
+    def _backward(self, delta, buffer=None,
+                    gbars=None, ss=None, gs=None, qs=None,
+                    As=None, Bs=None, X=None,
+                    somaml=False):
+        '''
+        Perform backpropogation on the infinite-width network. 
+        Note that this requires the saved items from the forward pass (gs, ss, qs).
+
+        There will be minimal comments in this function. For a more in-depth explanation, see pilimit_lib.
+
+        Input:
+        delta: (batch, dout) loss derivative
+        buffer: Used for metalearning. If not None, then backprop into `buffer` instead. Should be a pair (dAs, dBs), as returned by `newgradbuffer`.
+        '''
+        L = self.L
+        self.dgammas = {}
+        self.dalpha02s = {}
+        self.dalpha11s = {}
+        self.dbeta02s = {}
+        self.dbeta11s = {}
+        self._dAs = {}
+        if gbars is None:
+            gbars = self.gbars
+        if ss is None:
+            ss = self.ss
+        if gs is None:
+            gs = self.gs
+        if qs is None:
+            qs = self.qs
+        if As is None:
+            As = self.As
+        if Bs is None:
+            Bs = self.Bs
+        if X is None:
+            X = self.X
+
+        # (B, M)
+        if not somaml:
+            self.dgammas[L+1] = delta @ As[L+1].a.T \
+                * self.Amult[L+1].a.type_as(delta) * self.last_layer_alpha
+        else:
+            ckpt = As[L+1]._checkpoint
+            # (B', B)
+            self.dgammas[L+1] = (
+                # (B, dout)
+                delta \
+                # (dout, B')
+                @ self.out_grad_.detach().T \
+                # Amult contains lr used in train batch
+                * self.Amult[L+1].a[ckpt:].type_as(delta) \
+                # 1 copy from train backprop, 1 copy from test backprop
+                * self.last_layer_alpha**2
+            # using self.ss here for the ss on test batch
+                    # shape (B)
+            ).T * self.ss[L].flatten()
+
+        for l in range(L+1, 1, -1):
+            if self.layernorm:
+                s = 1
+                g = gbars[l-1]
+            else:
+                s = ss[l-1]
+                g = gs[l-1]
+            if l == L+1 and somaml:
+                # using self.gbars here for gbars on test batch
+                # (B, r)
+                B = self.gbars[L]
+                # (B', B)
+                # q = gbars[l-1] @ B.T
+                q = self.qs[l][:, ckpt:].T
+            else:
+                # (M, r)
+                B = Bs[l].a
+                q = qs[l]
+            # (B', M')
+            self.dalpha02s[l] = F02ReLUsqrt(q, 1, s)
+            # (B', M')
+            self.dalpha11s[l] = F11ReLUsqrt(q, 1, s)
+            # (B', r)
+            self.dbeta11s[l-1] = (self.dgammas[l] * self.dalpha11s[l]) @ B
+            # (B', M)
+            self.dbeta02s[l-1] = torch.einsum('bm,bm,br->br', self.dalpha02s[l], self.dgammas[l], g)
+            # (B', M)
+            self._dAs[l-1] = (self.dbeta11s[l-1] + self.dbeta02s[l-1])
+            if self.layernorm:
+                drho = torch.einsum('br,br->b', self._dAs[l-1], g)
+                self._dAs[l-1] -= drho[:, None] * g
+                self._dAs[l-1] /= ss[l-1]
+            if l > 2:
+                self.dgammas[l-1] = self._dAs[l-1] @ As[l-1].a.T \
+                    * self.Amult[l-1].a.type_as(delta)
+
+        
+        # accumulate gradients
+        dAs = self.dAs
+        dBs = self.dBs
+        dbiases = self.dbiases
+        if buffer is not None:
+            dAs = buffer[0]
+            dBs = buffer[1]
+            if self.dbiases is not None:
+                dbiases = buffer[2]
+        # (B', r)
+        dAs[1] += X.T @ self._dAs[1] * self.first_layer_alpha
+        for l in range(2, L+2):
+            if l == L+1 and somaml:
+                continue
+            if self.layernorm:
+                s = 1
+            else:
+                s = ss[l-1]
+            if l == L+1:
+                if self._last_layer_grad_no_alpha:
+                    mul = 1
+                else:
+                    mul = self.last_layer_alpha
+                    dAs[l].append(delta * s * mul)
+            else:
+                dAs[l].append(self._dAs[l] * s)
+            dBs[l].append(gbars[l-1])
+        if self.dbiases is not None:
+            for l in range(1, L+1):
+                dbiases[l] += self.bias_alpha * self._dAs[l].sum(dim=0) * (
+                self.first_layer_alpha if l == 1 else 1)
+            if not somaml:
+                dbiases[L+1] += self.last_bias_alpha * self.last_layer_alpha * delta.sum(dim=0)
