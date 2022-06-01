@@ -30,7 +30,13 @@ Dependencies:
 conda install pytorch torchvision torchaudio cudatoolkit=11.1 -c pytorch -c conda-forge 
 conda install -c conda-forge opt_einsum
 conda install matplotlib psutil seaborn tqdm matplotlib
-pip install ipywidgets
+pip install ipywidgets 
+```
+
+MAML specific dependencies:
+```
+pip install cox torchmeta
+conda install tensorboardX pytables
 ```
 
 

@@ -304,7 +304,7 @@ def InfPiLinearReLUFunctionBuilder(layernorm=False, cuda_batch_size=None, return
             # ctx.mark_non_differentiable(s_out, gbar_out)
 
             if return_hidden:
-                return g_out, q_in, s_in
+                return g_out, gbar_in, q_in, s_in
             return g_out
 
         @staticmethod

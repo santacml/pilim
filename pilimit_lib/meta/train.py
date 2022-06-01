@@ -28,6 +28,7 @@ def main(args, store, exp_id, get_all_outer_loss=False, timeit=False):
     tic = time.time()
     torch.set_default_dtype(getattr(torch, args.dtype))
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
+    logging.getLogger('PIL').setLevel(logging.WARNING)
     device = torch.device('cuda' if args.use_cuda
                           and torch.cuda.is_available() else 'cpu')
     

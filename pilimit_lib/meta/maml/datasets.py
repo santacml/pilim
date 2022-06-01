@@ -12,7 +12,7 @@ from meta.maml.model import MetaFinReLUGPModel, ModelConvOmniglot, ModelConvMini
 from meta.maml.utils import ToTensor1D
 # from inf.pimlp import InfPiMLP
 from inf.inf1lp import InfGP1LP, InfNTK1LP
-from examples.networks import FinPiMLPSample, InfMLP
+from examples.networks import FinPiMLPSample, MetaInfMLP
 
 Benchmark = namedtuple('Benchmark', 'meta_train_dataset meta_val_dataset '
                                     'meta_test_dataset model loss_function')
@@ -76,14 +76,14 @@ def get_benchmark_by_name(name,
             import torch; torch.manual_seed(seed)
             import numpy as np; np.random.seed(seed)
         if hidden_size < 0:
-            model = InfMLP(1, 1, infnet_r, depth, device='cpu',
+            model = MetaInfMLP(1, 1, infnet_r, depth, device='cpu',
                             first_layer_alpha=first_layer_alpha,
                             last_layer_alpha=1,
                             bias_alpha=bias_alpha,
                             last_bias_alpha=last_bias_alpha,
                             layernorm=False)
         else:
-            infnet = InfMLP(1, 1, infnet_r, depth, device='cpu',
+            infnet = MetaInfMLP(1, 1, infnet_r, depth, device='cpu',
                             first_layer_alpha=first_layer_alpha,
                             last_layer_alpha=1,
                             bias_alpha=bias_alpha,
@@ -171,7 +171,7 @@ def get_benchmark_by_name(name,
             #                 readout_zero_init=readout_zero_init)
             
             readout_zero_init # new output layer auto initializes with 0s
-            infnet = InfMLP(28**2, num_ways, infnet_r, depth, device='cpu',
+            infnet = MetaInfMLP(28**2, num_ways, infnet_r, depth, device='cpu',
                             first_layer_alpha=first_layer_alpha,
                             last_layer_alpha=1,
                             bias_alpha=bias_alpha,

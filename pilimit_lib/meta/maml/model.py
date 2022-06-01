@@ -19,6 +19,7 @@ def conv_block(in_channels, out_channels, **kwargs):
     ('pool', nn.MaxPool2d(2))
   ]))
 
+
 class SafeMetaLinear(MyLinear, MetaModule):
   def forward(self, input, params=None):
     if params is None:

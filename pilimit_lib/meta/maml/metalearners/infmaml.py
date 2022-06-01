@@ -140,8 +140,12 @@ class InfMAML(MAML):
     results = {'inner_losses': np.zeros(
       (num_adaptation_steps,), dtype=np.float32)}
 
+    inputs = inputs.reshape((inputs.shape[0], -1))
+
     for step in range(num_adaptation_steps):
-      logits = self.model(inputs)
+      gs, gbars, qs, ss = self.model(inputs)
+      self.metaops.assign_intermediate(inputs, gs, gbars, qs, ss, gs[-1])
+      logits = gs[-1]
       inner_loss = self.loss_function(logits, targets)
       results['inner_losses'][step] = inner_loss.item()
       ###

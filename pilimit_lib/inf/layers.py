@@ -410,7 +410,7 @@ class InfPiLinearReLU(nn.Module):
         
         self.project()
 
-        if bias_alpha:
+        if bias_alpha is not None:
             self.bias = nn.Parameter(torch.zeros(r_out, device=self.device, dtype=torch.float32))
         else:
             self.register_parameter('bias', None)
@@ -424,7 +424,7 @@ class InfPiLinearReLU(nn.Module):
         '''
         self.A.normal_()
         self.B.normal_()
-        self.B[:] = torch.nn.functional.normalize(self.B, dim=1)
+        self.B[:] = torch.nn.functional.normalize(self.B.float(), dim=1).to(self.B.dtype)
 
         if self.output_layer:
             self.A.mul_(0)
@@ -461,8 +461,8 @@ class InfPiLinearReLU(nn.Module):
         bias = (self.bias * self.bias_alpha) if self.bias_alpha else self.bias
 
         if self.return_hidden:
-            g_out, q_in, s_in = self.InfPiLinearReLUFunction.apply(g_in, self.A, self.Amult, self.B, self.A.pi, self.Amult.pi, self.B.pi, gbar_in, s_in, bias)
-            return g_out, q_in, s_in    
+            g_out, gbar_in, q_in, s_in = self.InfPiLinearReLUFunction.apply(g_in, self.A, self.Amult, self.B, self.A.pi, self.Amult.pi, self.B.pi, gbar_in, s_in, bias)
+            return g_out, gbar_in, q_in, s_in    
         else:
             g_out = self.InfPiLinearReLUFunction.apply(g_in, self.A, self.Amult, self.B, self.A.pi, self.Amult.pi, self.B.pi, gbar_in, s_in, bias)
             return g_out    

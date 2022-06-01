@@ -108,7 +108,7 @@ class MetaInfMLP(PiNet):
             layernorm=False, 
             cuda_batch_size=None, 
             device="cpu"):
-        super(InfMLP, self).__init__()
+        super(MetaInfMLP, self).__init__()
         '''
         This class creates a L+2 (for input and output) layer META LEARNING Infinite-width Pi-MLP as specified in our paper: https://openreview.net/forum?id=tUMr0Iox8XW
 
@@ -150,7 +150,6 @@ class MetaInfMLP(PiNet):
         
         self.layers.append(InfPiLinearReLU(r, r_out=d_out, output_layer=True, bias_alpha=last_bias_alpha, device=device, layernorm=layernorm, cuda_batch_size=cuda_batch_size, return_hidden=True))
 
-        
     def forward(self, x):
         '''
         Forward propogate through the infnet with a given x.
@@ -160,20 +159,23 @@ class MetaInfMLP(PiNet):
             - layer alphas are accounted for automatically with autograd
         '''
         gs = [] 
+        gbars = []
         ss = []
         qs = []
         for n in range(0, self.L+2):
-            g, s, q = self.layers[n](x)
+            g, gbar, s, q = self.layers[n](x)
             if n == 0: 
                 g *= self.first_layer_alpha
             if n == self.L+1: 
                 g *= self.last_layer_alpha
             gs.append(g.clone())
             if n > 0: # offset by 1 as we don't need ss and qs for last layer - each layer returns s and q for the input
+                gbars.append(gbar.clone())
                 ss.append(s.clone())
                 qs.append(q.clone())
+            x = g
 
-        return gs, ss, qs
+        return gs, gbars, ss, qs
         
 
 class FinPiMLPSample(torch.nn.Module):
@@ -236,6 +238,7 @@ class MetaInfMLPOps(object):
 
         '''
         self.infnet = infnet
+        self.L = infnet.L
 
 
     def zero_grad(self):
@@ -356,12 +359,12 @@ class MetaInfMLPOps(object):
         '''
         dAs = {0: torch.zeros_like(self.infnet.layers[0].A)}
         dBs = {}
-        for l in range(1, self.L+3):
+        for l in range(1, self.L+2):
             dAs[l] = []
             dBs[l] = []
         if self.infnet.layers[0].bias is not None:
             dbiases = {}
-            for l in range(1, self.L+2):
+            for l in range(0, self.L+2):
                 dbiases[l] = torch.zeros_like(self.infnet.layers[l].bias)
             return dAs, dBs, dbiases
         return dAs, dBs
