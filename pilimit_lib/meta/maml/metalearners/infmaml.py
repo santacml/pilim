@@ -167,7 +167,8 @@ class InfMAML(MAML):
         # ###
         # self.model.zero_embed_grad()
         # ###
-      self.model.step(step_size)
+      # self.model.step(step_size)
+      self.metaops.step(step_size)
       ###
 
       if (step == 0) and is_classification_task:

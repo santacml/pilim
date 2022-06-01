@@ -384,21 +384,21 @@ class MetaInfMLPOps(object):
             return dAs, dBs, dbiases
         return dAs, dBs
 
-    @torch.no_grad()
-    def assign_pi_grad(self):
-        '''
-        assign pi grads from dAs and dBs into network
-        '''
-        self.infnet.layers[0].A.grad[:] = self.dAs[0]
+    # @torch.no_grad()
+    # def assign_pi_grad(self):
+    #     '''
+    #     assign pi grads from dAs and dBs into network
+    #     '''
+    #     self.infnet.layers[0].A.grad[:] = self.dAs[0]
 
-        for n in range(1, self.infnet.L+1):
-            dA = torch.cat(self.dAs[n])
-            dB = torch.cat(self.dBs[n])
+    #     for n in range(1, self.infnet.L+1):
+    #         dA = torch.cat(self.dAs[n])
+    #         dB = torch.cat(self.dBs[n])
 
-            self.infnet.layers[n].A.set_pi_size(dA.shape[0])
-            self.infnet.layers[n].A.pi[:] = dA
-            self.infnet.layers[n].B.set_pi_size(dB.shape[0])
-            self.infnet.layers[n].B.pi[:] = dB
+    #         self.infnet.layers[n].A.set_pi_size(dA.shape[0])
+    #         self.infnet.layers[n].A.pi[:] = dA
+    #         self.infnet.layers[n].B.set_pi_size(dB.shape[0])
+    #         self.infnet.layers[n].B.pi[:] = dB
 
 
     def backward_somaml(self, delta, buffer=None, readout_fixed_at_zero=False):
@@ -567,8 +567,8 @@ class MetaInfMLPOps(object):
             if self.dbiases is not None:
                 dbiases = buffer[2]
         # (B', r)
-        dAs[1] += X.T @ self._dAs[1] * self.first_layer_alpha
-        for l in range(2, L+2):
+        dAs[0] += X.T @ self._dAs[0] * self.first_layer_alpha
+        for l in range(1, L+2):
             if l == L+1 and somaml:
                 continue
             if self.layernorm:
@@ -590,3 +590,69 @@ class MetaInfMLPOps(object):
                 self.first_layer_alpha if l == 1 else 1)
             if not somaml:
                 dbiases[L+1] += self.last_bias_alpha * self.last_layer_alpha * delta.sum(dim=0)
+
+
+    @torch.no_grad()
+    def step(
+        self,
+        lr,
+        buffer=None, 
+        bias_lr_mult=1, 
+        first_layer_lr_mult=1,
+        last_layer_lr_mult=1):
+        '''
+        Perform a gradient descent step on the Pi-Net.
+
+        Note this first requires doing a forwards and backwards pass to store the dAs and dBs, 
+        which are gradient updates for A and B matrices.
+        
+        Amult only stores the learning rate and momentum in fp32 format.
+
+        There will be minimal comments in this function. For a more in-depth explanation, see pilimit_lib.
+
+        Inputs:
+        lr: learning rate
+        buffer: buffered gradients for MAML
+        dampening: dampening (not used in paper)
+        bias_lr_mult: extra learning rate multiplier for bias
+        first_layer_lr_mult: extra learning rate multiplier for the first layer
+        last_layer_lr_mult: extra learning rate multiplier for the last layer
+        '''
+        
+        
+        dAs = self.dAs
+        dBs = self.dBs
+        dbiases = self.dbiases
+        if buffer is not None:
+            dAs = buffer[0]
+            dBs = buffer[1]
+        if self.biases is not None:
+            dbiases = buffer[2]
+
+        self.infnet.layers[0].A -= lr * dAs[0] * first_layer_lr_mult
+
+        for l in range(1, self.L+2):
+                mult = last_layer_lr_mult if l == self.L+1 else 1
+                if mult == 0:
+                    continue
+
+                dA = torch.cat(dAs[l])
+                dB = torch.cat(dBs[l])
+                
+                self.infnet.layers[l].A.cat_grad(dA, alpha=1)
+                self.infnet.layers[l].Amult.cat_grad(
+                        torch.ones(sum(a.shape[0] for a in dAs[l]),
+                        dtype=torch.float32, device=self.infnet.layers[l].A.device),
+                    alpha=-lr )
+                    # alpha=-lr * mult) # mult covered in variable instantiation
+                self.infnet.layers[l].B.cat_grad(dB, alpha=1)
+
+                # self.As[l].cat(*dAs[l])
+                # self.Amult[l].cat(
+                # -lr * mult * torch.ones(sum(a.shape[0] for a in dAs[l]),
+                #     dtype=torch.float32, device=self.As[l].a.device)
+                # )
+                # self.Bs[l].cat(*dBs[l])
+        if self.biases is not None:
+                for l in range(0, self.L+2):
+                    self.infnet.layers[l].bias -= lr * bias_lr_mult * dbiases[l]
