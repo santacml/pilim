@@ -194,8 +194,7 @@ class InfSGD():
     #   last_layer_lr_mult=self.last_layer_lr_mult,
     #   apply_lr_mult_to_wd=self.apply_lr_mult_to_wd)
 
-    metaops.step(self.lr, wd=self.wd, buffer=buffer,
-      momentum=self.momentum, bias_lr_mult=self.bias_lr_mult,
+    metaops.step(self.lr,  buffer=buffer, bias_lr_mult=self.bias_lr_mult,
       first_layer_lr_mult=self.first_layer_lr_mult,
       last_layer_lr_mult=self.last_layer_lr_mult)
 

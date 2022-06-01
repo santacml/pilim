@@ -57,8 +57,8 @@ def store_pi_grad_norm_(modules, exclude_last_layer=False):
     '''
     for module in modules:
         if isinstance(module, InfPiLinearReLU):
-            if exclude_last_layer and module.exclude_last_layer: continue
-            
+            if exclude_last_layer and module.output_layer: continue
+
             module.A.pi_grad_norm = ABnorm(module.A.pi.grad.detach(), module.B.pi.grad.detach())
 
 def clip_grad_norm_(
