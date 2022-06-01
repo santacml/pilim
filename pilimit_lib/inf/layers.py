@@ -185,7 +185,7 @@ class InfPiInputLinearReLU(nn.Module):
             g_out += (self.bias.unsqueeze(0) * self.bias_alpha).type_as(g_out)
 
         if self.return_hidden:
-            return g_out, None, None
+            return g_out, None, None, None
         else:
             return g_out
 

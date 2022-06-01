@@ -221,6 +221,7 @@ def main(args, store, exp_id, get_all_outer_loss=False, timeit=False):
                 print('multistep scheduler')
                 print('milestones', milestones)
             sch = torch.optim.lr_scheduler.MultiStepLR(meta_optimizer, milestones=milestones, gamma=args.lr_drop_ratio)
+        0/0 # need to fix gclipwrapper 
         meta_optimizer = GClipWrapper(meta_optimizer, benchmark.model, args.grad_clip, args.gclip_per_param, args.last_layer_lr_mult==0)
         benchmark.model.no_adapt_readout = args.no_adapt_readout
         benchmark.model.adapt_readout_only = args.adapt_readout_only        

@@ -48,7 +48,7 @@ def pi_init(module):
         module.initialize(None)
 
 @torch.no_grad()
-def store_pi_grad_norm_(modules):
+def store_pi_grad_norm_(modules, exclude_last_layer=False):
     '''
     Store the ABnorm of all A matrices in a pi modules
     for gradient clipping.
@@ -57,6 +57,8 @@ def store_pi_grad_norm_(modules):
     '''
     for module in modules:
         if isinstance(module, InfPiLinearReLU):
+            if exclude_last_layer and module.exclude_last_layer: continue
+            
             module.A.pi_grad_norm = ABnorm(module.A.pi.grad.detach(), module.B.pi.grad.detach())
 
 def clip_grad_norm_(

@@ -27,9 +27,9 @@ class InfMAML(MAML):
     self.metagrads = self.metaops.newgradbuffer()
 
   def nilmax(self, train_inputs, train_labels, test_inputs, test_labels):
-    out, gs = self.model.forward(train_inputs, return_hidden=True)
+    out, gs, gbars, qs, ss = self.model.forward(train_inputs, return_hidden=True)
     train_embed = gs[self.model.L + 1].clone()
-    out, gs = self.model.forward(test_inputs, return_hidden=True)
+    out, gs, gbars, qs, ss = self.model.forward(test_inputs, return_hidden=True)
     test_embed = gs[self.model.L + 1].clone()
 
     train_embed = train_embed / train_embed.norm(dim=1, keepdim=True)
@@ -91,20 +91,27 @@ class InfMAML(MAML):
           test_targets = test_targets.type(torch.get_default_dtype())
         # CHANGE
         with torch.no_grad():
-          test_logits = self.model(test_inputs)
+          # test_logits = self.model(test_inputs)
+          test_inputs = test_inputs.reshape((test_inputs.shape[0], -1))
+          test_logits, gs, gbars, qs, ss  = self.model(test_inputs)
+          self.metaops.assign_intermediate(test_inputs, gs, gbars, qs, ss, test_logits)
+          test_logits.requires_grad = True
         # END CHANGE
         outer_loss = self.loss_function(test_logits, test_targets)
         results['outer_losses'][task_id] = outer_loss.item()
         mean_outer_loss += outer_loss
         # CHANGE
         if dobackward:
-          outer_loss.backward()
+          # outer_loss.backward()
+          
+          logit_grad = torch.autograd.grad(outer_loss,
+                              [test_logits], create_graph=False)[0]
           if self.first_order:
             # self.model.backward(test_logits.grad, buffer=self.metagrads)
-            self.metaops.backward(test_logits.grad, buffer=self.metagrads)
+            self.metaops.backward(logit_grad, buffer=self.metagrads)
           else:
             # self.model.backward_somaml(test_logits.grad, buffer=self.metagrads, readout_fixed_at_zero=self.readout_fixed_at_zero)
-            self.metaops.backward_somaml(test_logits.grad, buffer=self.metagrads, readout_fixed_at_zero=self.readout_fixed_at_zero)
+            self.metaops.backward_somaml(logit_grad, buffer=self.metagrads, readout_fixed_at_zero=self.readout_fixed_at_zero)
         # self.model.restore()
         self.metaops.restore()
         if not self.first_order:
@@ -143,9 +150,8 @@ class InfMAML(MAML):
     inputs = inputs.reshape((inputs.shape[0], -1))
 
     for step in range(num_adaptation_steps):
-      gs, gbars, qs, ss = self.model(inputs)
-      self.metaops.assign_intermediate(inputs, gs, gbars, qs, ss, gs[-1])
-      logits = gs[-1]
+      logits, gs, gbars, qs, ss = self.model(inputs)
+      self.metaops.assign_intermediate(inputs, gs, gbars, qs, ss, logits)
       inner_loss = self.loss_function(logits, targets)
       results['inner_losses'][step] = inner_loss.item()
       ###
@@ -196,6 +202,7 @@ class InfMAML(MAML):
 
         ### CHANGE
         # self.optimizer.zero_grad()
+        self.metaops.zero_grad()
         # self.model.resetbuffer(self.metagrads)
         self.metaops.resetbuffer(self.metagrads)
         # self.model.checkpoint()
@@ -214,7 +221,7 @@ class InfMAML(MAML):
         #   self.model.gclip(self.grad_clip, buffer=self.metagrads, per_param=self.gclip_per_param)
         
         # TODO: InfSGD needs to take a grad buffer
-        self.optimizer.step(self.metagrads)
+        self.optimizer.step(self.metaops, buffer=self.metagrads)
         ### END CHANGE
 
         if self.scheduler is not None:

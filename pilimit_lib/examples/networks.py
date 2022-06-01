@@ -158,24 +158,27 @@ class MetaInfMLP(PiNet):
             - we don't need to define a backward, as torch will do that for us
             - layer alphas are accounted for automatically with autograd
         '''
-        gs = [] 
-        gbars = []
-        ss = []
-        qs = []
+        gs = {}
+        gbars = {}
+        ss = {}
+        qs = {}
         for n in range(0, self.L+2):
-            g, gbar, s, q = self.layers[n](x)
+            g, gbar, q, s = self.layers[n](x)
             if n == 0: 
                 g *= self.first_layer_alpha
             if n == self.L+1: 
                 g *= self.last_layer_alpha
-            gs.append(g.clone())
-            if n > 0: # offset by 1 as we don't need ss and qs for last layer - each layer returns s and q for the input
-                gbars.append(gbar.clone())
-                ss.append(s.clone())
-                qs.append(q.clone())
+
+            gs[n] = g.clone()
+            qs[n] = q.clone() if q is not None else None
+            gbars[n-1] = gbar.clone() if gbar is not None else None
+            ss[n-1] = s.clone() if s is not None else None
             x = g
 
-        return gs, gbars, ss, qs
+        ss[self.L+1] =  gs[self.L+1].norm(dim=1, keepdim=True)
+        gbars[self.L+1] =  gs[self.L+1] / ss[self.L+1]
+
+        return x, gs, gbars, qs, ss
         
 
 class FinPiMLPSample(torch.nn.Module):
@@ -239,7 +242,26 @@ class MetaInfMLPOps(object):
         '''
         self.infnet = infnet
         self.L = infnet.L
+        self.layernorm = infnet.layernorm
 
+        self.init_zero_grad()
+
+    def init_zero_grad(self):
+        '''
+        Delete the stored gradient for the network.
+        '''
+        self.dAs = {}
+        self.dBs = {}
+        self.dbiases = {}
+
+        self.dAs[0] = torch.zeros_like(self.infnet.layers[0].A)
+        for l in range(1, self.L+2):
+            self.dBs[l] = []
+            self.dAs[l] = []
+
+        if self.infnet.layers[0].bias is not None:
+            for l in range(0, self.L+2):
+                self.dbiases[l] = torch.zeros_like(self.infnet.layers[l].bias)
 
     def zero_grad(self):
         '''
@@ -281,6 +303,7 @@ class MetaInfMLPOps(object):
             self.infnet.layers[l].Amult.checkpoint()
             self.infnet.layers[l].B.checkpoint()
 
+    @torch.no_grad()
     def restore(self):
         '''
         Restore all of the parameters in the network from the latest checkpoint.
@@ -348,10 +371,10 @@ class MetaInfMLPOps(object):
             s = 1
         else:
             s = self.ss[L+1]
-        dAs[L+1].append(delta * s * self.last_layer_alpha)
+        dAs[L+1].append(delta * s * self.infnet.last_layer_alpha)
         dBs[L+1].append(self.gbars[L])
         if self.dbiases is not None:
-            dbiases[L+1] += self.last_bias_alpha * self.last_layer_alpha * delta.sum(dim=0)
+            dbiases[L+1] += self.infnet.last_bias_alpha * self.infnet.last_layer_alpha * delta.sum(dim=0)
 
     def newgradbuffer(self):
         '''
@@ -427,7 +450,7 @@ class MetaInfMLPOps(object):
         # shape (B, B')
         q = F00ReLUsqrt(self.qs[L+1][:, ckpt:], self.ss_[L].T, self.ss[L])
         # multiply by the multipliers on loss derivatives from train batch
-        q *=  self.infnet.layers[L+1].Amult[L+1][ckpt:].flatten() * self.last_layer_alpha
+        q *=  self.infnet.layers[L+1].Amult[L+1][ckpt:].flatten() * self.infnet.last_layer_alpha
         # shape (B', dout)
         c = q.T @ delta
         # self.restore()
@@ -461,6 +484,7 @@ class MetaInfMLPOps(object):
         '''
         self._backward(delta, buffer)
 
+    @torch.no_grad()
     def _backward(self, delta, buffer=None,
                     gbars=None, ss=None, gs=None, qs=None,
                     As=None, Bs=None, X=None,
@@ -494,21 +518,21 @@ class MetaInfMLPOps(object):
             # As = self.As
             As = {}
             for n in range(0, self.infnet.L+2):
-                As[n] = self.infnet.layers[n].A.clone()
+                As[n] = self.infnet.layers[n].A
         if Bs is None:
             # Bs = self.Bs
             Bs = {}
             for n in range(1, self.infnet.L+2):
-                Bs[n] = self.infnet.layers[n].B.clone()
+                Bs[n] = self.infnet.layers[n].B
         if X is None:
             X = self.X
 
         # (B, M)
         if not somaml:
             self.dgammas[L+1] = delta @ As[L+1].T \
-                *  self.infnet.layers[L+1].Amult.type_as(delta) * self.last_layer_alpha
+                *  self.infnet.layers[L+1].Amult.type_as(delta) * self.infnet.last_layer_alpha
         else:
-            ckpt = As[L+1]._checkpoint
+            ckpt = As[L+1].checkpoint_size
             # (B', B)
             self.dgammas[L+1] = (
                 # (B, dout)
@@ -518,12 +542,12 @@ class MetaInfMLPOps(object):
                 # Amult contains lr used in train batch
                 * self.infnet.layers[L+1].Amult[ckpt:].type_as(delta) \
                 # 1 copy from train backprop, 1 copy from test backprop
-                * self.last_layer_alpha**2
+                * self.infnet.last_layer_alpha**2
             # using self.ss here for the ss on test batch
                     # shape (B)
             ).T * self.ss[L].flatten()
 
-        for l in range(L+1, 1, -1):
+        for l in range(L+1, 0, -1):
             if self.layernorm:
                 s = 1
                 g = gbars[l-1]
@@ -555,7 +579,7 @@ class MetaInfMLPOps(object):
                 drho = torch.einsum('br,br->b', self._dAs[l-1], g)
                 self._dAs[l-1] -= drho[:, None] * g
                 self._dAs[l-1] /= ss[l-1]
-            if l > 2:
+            if l > 1:
                 self.dgammas[l-1] = self._dAs[l-1] @ As[l-1].T \
                     * self.infnet.layers[l-1].Amult.type_as(delta)
 
@@ -570,7 +594,7 @@ class MetaInfMLPOps(object):
             if self.dbiases is not None:
                 dbiases = buffer[2]
         # (B', r)
-        dAs[0] += X.T @ self._dAs[0] * self.first_layer_alpha
+        dAs[0] += X.T @ self._dAs[0] * self.infnet.first_layer_alpha
         for l in range(1, L+2):
             if l == L+1 and somaml:
                 continue
@@ -579,20 +603,21 @@ class MetaInfMLPOps(object):
             else:
                 s = ss[l-1]
             if l == L+1:
-                if self._last_layer_grad_no_alpha:
-                    mul = 1
-                else:
-                    mul = self.last_layer_alpha
+                # if self._last_layer_grad_no_alpha:
+                #     mul = 1
+                # else:
+                if True:
+                    mul = self.infnet.last_layer_alpha
                     dAs[l].append(delta * s * mul)
             else:
                 dAs[l].append(self._dAs[l] * s)
             dBs[l].append(gbars[l-1])
         if self.dbiases is not None:
             for l in range(1, L+1):
-                dbiases[l] += self.bias_alpha * self._dAs[l].sum(dim=0) * (
-                self.first_layer_alpha if l == 1 else 1)
+                dbiases[l] += self.infnet.bias_alpha * self._dAs[l].sum(dim=0) * (
+                self.infnet.first_layer_alpha if l == 1 else 1)
             if not somaml:
-                dbiases[L+1] += self.last_bias_alpha * self.last_layer_alpha * delta.sum(dim=0)
+                dbiases[L+1] += self.infnet.last_bias_alpha * self.infnet.last_layer_alpha * delta.sum(dim=0)
 
 
     @torch.no_grad()
@@ -629,33 +654,35 @@ class MetaInfMLPOps(object):
         if buffer is not None:
             dAs = buffer[0]
             dBs = buffer[1]
-        if self.biases is not None:
-            dbiases = buffer[2]
+            if self.infnet.layers[0].bias is not None:
+                dbiases = buffer[2]
 
         self.infnet.layers[0].A -= lr * dAs[0] * first_layer_lr_mult
 
         for l in range(1, self.L+2):
-                mult = last_layer_lr_mult if l == self.L+1 else 1
-                if mult == 0:
-                    continue
+            mult = last_layer_lr_mult if l == self.L+1 else 1
+            if mult == 0:
+                continue
 
-                dA = torch.cat(dAs[l])
-                dB = torch.cat(dBs[l])
-                
-                self.infnet.layers[l].A.cat_grad(dA, alpha=1)
-                self.infnet.layers[l].Amult.cat_grad(
-                        torch.ones(sum(a.shape[0] for a in dAs[l]),
-                        dtype=torch.float32, device=self.infnet.layers[l].A.device),
-                    alpha=-lr )
-                    # alpha=-lr * mult) # mult covered in variable instantiation
-                self.infnet.layers[l].B.cat_grad(dB, alpha=1)
+            if len(dAs[l]) == 0: continue  # TODO misantac only adapt readout - how was this avoided in old lib exactly?
 
-                # self.As[l].cat(*dAs[l])
-                # self.Amult[l].cat(
-                # -lr * mult * torch.ones(sum(a.shape[0] for a in dAs[l]),
-                #     dtype=torch.float32, device=self.As[l].a.device)
-                # )
-                # self.Bs[l].cat(*dBs[l])
-        if self.biases is not None:
-                for l in range(0, self.L+2):
-                    self.infnet.layers[l].bias -= lr * bias_lr_mult * dbiases[l]
+            dA = torch.cat(dAs[l])
+            dB = torch.cat(dBs[l])
+            
+            self.infnet.layers[l].A.cat_grad(dA, alpha=1)
+            self.infnet.layers[l].Amult.cat_grad(
+                    torch.ones(sum(a.shape[0] for a in dAs[l]),
+                    dtype=torch.float32, device=self.infnet.layers[l].A.device),
+                alpha=-lr )
+                # alpha=-lr * mult) # mult covered in variable instantiation
+            self.infnet.layers[l].B.cat_grad(dB, alpha=1)
+
+            # self.As[l].cat(*dAs[l])
+            # self.Amult[l].cat(
+            # -lr * mult * torch.ones(sum(a.shape[0] for a in dAs[l]),
+            #     dtype=torch.float32, device=self.As[l].a.device)
+            # )
+            # self.Bs[l].cat(*dBs[l])
+        if self.infnet.layers[0].bias is not None:
+            for l in range(0, self.L+2):
+                self.infnet.layers[l].bias -= lr * bias_lr_mult * dbiases[l]
