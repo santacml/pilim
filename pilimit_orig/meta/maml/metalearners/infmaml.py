@@ -87,8 +87,9 @@ class InfMAML(MAML):
         else:
           test_targets = test_targets.type(torch.get_default_dtype())
         # CHANGE
-        with torch.no_grad():
-          test_logits = self.model(test_inputs)
+        # with torch.no_grad():
+        test_logits = self.model(test_inputs).detach()
+        test_logits.requires_grad = True
         # END CHANGE
         outer_loss = self.loss_function(test_logits, test_targets)
         results['outer_losses'][task_id] = outer_loss.item()
@@ -134,12 +135,15 @@ class InfMAML(MAML):
       (num_adaptation_steps,), dtype=np.float32)}
 
     for step in range(num_adaptation_steps):
-      logits = self.model(inputs)
+      logits = self.model(inputs).detach()
+      logits.requires_grad = True
       inner_loss = self.loss_function(logits, targets)
-      results['inner_losses'][step] = inner_loss.item()
+      inner_loss.backward()
+      logit_grad = logits.grad
       ###
-      logit_grad = torch.autograd.grad(inner_loss,
-                          [logits], create_graph=not first_order)[0]
+      # logit_grad = torch.autograd.grad(inner_loss,
+                          # [logits], create_graph=not first_order)[0]
+      results['inner_losses'][step] = inner_loss.item()
       if not first_order:
         self.model.save_intermediate(logit_grad)
       # inner_loss.backward()

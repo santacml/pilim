@@ -152,11 +152,15 @@ class InfMAML(MAML):
     for step in range(num_adaptation_steps):
       logits, gs, gbars, qs, ss = self.model(inputs)
       self.metaops.assign_intermediate(inputs, gs, gbars, qs, ss, logits)
+      logits = logits.detach()
+      logits.requires_grad = True
       inner_loss = self.loss_function(logits, targets)
       results['inner_losses'][step] = inner_loss.item()
       ###
-      logit_grad = torch.autograd.grad(inner_loss,
-                          [logits], create_graph=not first_order)[0]
+      inner_loss.backward()
+      logit_grad = logits.grad
+      # logit_grad = torch.autograd.grad(inner_loss,
+      #                     [logits], create_graph=not first_order)[0]
       if not first_order:
         # self.model.save_intermediate(logit_grad)
         self.metaops.save_intermediate(logit_grad)

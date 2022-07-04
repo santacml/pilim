@@ -47,23 +47,38 @@ def pi_init(module):
     elif isinstance(module, FinPiLinearReLU):
         module.initialize(None)
 
+
 @torch.no_grad()
-def store_pi_grad_norm_(modules, exclude_last_layer=False):
+def store_pi_grad_norm_(modules, exclude_last_layer=False, buffer=None):
     '''
     Store the ABnorm of all A matrices in a pi modules
     for gradient clipping.
 
     TODO: refactor this
     '''
+    to_store = []
     for module in modules:
         if isinstance(module, InfPiLinearReLU):
             if exclude_last_layer and module.output_layer: continue
+            to_store.append(module)
 
+
+    if buffer is None:
+        for module in to_store:
             module.A.pi_grad_norm = ABnorm(module.A.pi.grad.detach(), module.B.pi.grad.detach())
+    else:
+        cnt = 1
+        for module in to_store:
+            dA = torch.cat(buffer[0][cnt])
+            dB = torch.cat(buffer[1][cnt])
+            module.A.pi_grad_norm = ABnorm(dA, dB)
+        cnt += 1
+
 
 def clip_grad_norm_(
         parameters, max_norm, norm_type = 2.0,
-        error_if_nonfinite = False):
+        error_if_nonfinite = False,
+        buffer=None):
     '''
     A copy of torch's clip_grad_norm_, 
     except that it adds pi_parameters which clip their gradient using
@@ -120,6 +135,15 @@ def clip_grad_norm_(
     if clip_coef < 1:
         for p in reg_parameters:
             p.grad.detach().mul_(clip_coef.to(p.grad.device))
-        for p in pi_parameters:
-            p.pi.grad.detach().mul_(clip_coef.to(p.pi.grad.device))
+        
+        if buffer is None:
+            for p in pi_parameters:
+                p.pi.grad.detach().mul_(clip_coef.to(p.pi.grad.device))
+        else:
+            cnt = 1
+            dAs = buffer[0]
+            for p in pi_parameters:
+                dAs[cnt] = [d * clip_coef.to(d.device) for d in dAs[cnt]]
+                # p.pi.grad.detach().mul_(clip_coef.to(p.pi.grad.device))
+                cnt += 1
     return total_norm

@@ -175,6 +175,9 @@ class MetaInfMLP(PiNet):
             ss[n-1] = s.clone() if s is not None else None
             x = g
 
+            # if s is not None: 
+            #     print(s.abs().sum())
+
         ss[self.L+1] =  gs[self.L+1].norm(dim=1, keepdim=True)
         gbars[self.L+1] =  gs[self.L+1] / ss[self.L+1]
 
@@ -370,11 +373,16 @@ class MetaInfMLPOps(object):
         if self.layernorm:
             s = 1
         else:
-            s = self.ss[L+1]
+            # s = self.ss[L+1]
+            s = self.ss[L]
         dAs[L+1].append(delta * s * self.infnet.last_layer_alpha)
         dBs[L+1].append(self.gbars[L])
         if self.dbiases is not None:
             dbiases[L+1] += self.infnet.last_bias_alpha * self.infnet.last_layer_alpha * delta.sum(dim=0)
+        # print(dAs[L+1][-1].abs().sum())
+        # print("s", s.abs().sum())
+        # print("del", delta.abs().sum())
+        # print(dBs[L+1][-1].abs().sum())
 
     def newgradbuffer(self):
         '''
@@ -658,9 +666,11 @@ class MetaInfMLPOps(object):
                 dbiases = buffer[2]
 
         self.infnet.layers[0].A -= lr * dAs[0] * first_layer_lr_mult
-
+        
         for l in range(1, self.L+2):
             mult = last_layer_lr_mult if l == self.L+1 else 1
+            # print(mult)
+            # 0/0
             if mult == 0:
                 continue
 
@@ -673,8 +683,8 @@ class MetaInfMLPOps(object):
             self.infnet.layers[l].Amult.cat_grad(
                     torch.ones(sum(a.shape[0] for a in dAs[l]),
                     dtype=torch.float32, device=self.infnet.layers[l].A.device),
-                alpha=-lr )
-                # alpha=-lr * mult) # mult covered in variable instantiation
+                # alpha=-lr )
+                alpha=-lr * mult) # mult covered in variable instantiation
             self.infnet.layers[l].B.cat_grad(dB, alpha=1)
 
             # self.As[l].cat(*dAs[l])

@@ -177,16 +177,16 @@ class InfSGD():
     if self.gclip > 0:
     #   self.model.gclip(self.gclip, buffer=buffer, per_param=self.gclip_per_param, exclude_last_layer=self.last_layer_lr_mult==0)
     
-        store_pi_grad_norm_(self.model.modules(), exclude_last_layer=self.last_layer_lr_mult==0)
+        store_pi_grad_norm_(self.model.modules(), exclude_last_layer=self.last_layer_lr_mult==0, buffer=buffer)
 
         # TODO misantac this doesn't exclude last layer BIAS gradient from calculation, but neither did old repo
 
         if self.gclip_per_param:
             for param in self.model.parameters():
-                clip_grad_norm_(param, self.gclip)
+                clip_grad_norm_(param, self.gclip, buffer=buffer)
                 # torch.nn.utils.clip_grad_norm_(param, gclip_sch.gclip)  # normal torch usage
         else:
-            clip_grad_norm_(self.model.parameters(), self.gclip)
+            clip_grad_norm_(self.model.parameters(), self.gclip, buffer=buffer)
     
     # self.model.step(self.lr, wd=self.wd, buffer=buffer,
     #   momentum=self.momentum, bias_lr_mult=self.bias_lr_mult,
