@@ -1,6 +1,6 @@
 import torch
 import math
-import torch.optim._functional as F
+import torch.optim._functional as optim_F
 from torch.optim.optimizer import Optimizer
 from .tensors import FinPiParameter, InfPiParameter
 from .utils import *
@@ -115,7 +115,7 @@ class PiSGD(Optimizer):
                     momentum_buffer_list.append(state['momentum_buffer'])
 
 
-            F.sgd(params_with_grad,
+            optim_F.sgd(params_with_grad,
                   d_p_list,
                   momentum_buffer_list,
                   weight_decay=weight_decay,
