@@ -6,14 +6,14 @@ By default, this will run a pi-net on some dummy data.
 This is useful for ironing out small bugs, or ensuring changes did not hurt anything.
 '''
 
+import time
 import torch
 from torch import nn
-from inf.layers import *
-from inf.optim import *
 from torchvision import models
-from examples.networks import InfMLP, FinPiMLPSample
-from inf.utils import *
-import time
+from ..inf.layers import *
+from ..inf.optim import *
+from ..inf.utils import *
+from ..examples.networks import InfMLP, FinPiMLPSample
 
 
 # torch.set_default_dtype(torch.float16)
