@@ -122,7 +122,8 @@ class PiSGD(Optimizer):
                   momentum=momentum,
                   lr=lr,
                   dampening=dampening,
-                  nesterov=False)
+                  nesterov=False,
+                  maximize=False)
 
             # update momentum_buffers in state
             for p, momentum_buffer in zip(params_with_grad, momentum_buffer_list):
