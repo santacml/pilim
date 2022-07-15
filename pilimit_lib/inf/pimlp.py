@@ -3,8 +3,8 @@ from torch import nn, optim
 import torch.nn.functional as F
 from copy import deepcopy
 import numpy as np
-from inf.dynamicarray import DynArr, CycArr
-from inf.utils import safe_sqrt, safe_acos, F00ReLUsqrt, F11ReLUsqrt, F02ReLUsqrt, VReLUmatrix, ABnorm
+from .dynamicarray import DynArr, CycArr
+from .utils import safe_sqrt, safe_acos, F00ReLUsqrt, F11ReLUsqrt, F02ReLUsqrt, VReLUmatrix, ABnorm
 
 class MyLinear(nn.Linear):
   def __init__(self, *args, **kw):

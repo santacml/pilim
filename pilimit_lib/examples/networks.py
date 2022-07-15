@@ -1,8 +1,8 @@
 from numpy import diff
 import torch
 from torch import nn
-from inf.layers import *
-from inf.optim import *
+from ..inf.layers import *
+from ..inf.optim import *
 from torchvision import models
 
 class PiNet(torch.nn.Module):

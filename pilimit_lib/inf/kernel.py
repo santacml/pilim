@@ -4,8 +4,8 @@ import torch.nn.functional as F
 from copy import deepcopy
 import numpy as np
 
-from inf.dynamicarray import DynArr, CycArr
-from inf.utils import J1, safe_sqrt, safe_acos, F00ReLUsqrt, F11ReLUsqrt, F02ReLUsqrt, VReLUmatrix, ABnorm, F11norm, VStepmatrix, J0
+from .dynamicarray import DynArr, CycArr
+from .utils import J1, safe_sqrt, safe_acos, F00ReLUsqrt, F11ReLUsqrt, F02ReLUsqrt, VReLUmatrix, ABnorm, F11norm, VStepmatrix, J0
 
 class KernelModel():
   def __init__(self, input_dim, output_dim, kerfn, initbuffersize=1, device='cpu', arrbackend=DynArr):

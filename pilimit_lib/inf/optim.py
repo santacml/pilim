@@ -1,9 +1,9 @@
-from inf.tensors import FinPiParameter, InfPiParameter
 import torch
 import math
 import torch.optim._functional as F
 from torch.optim.optimizer import Optimizer
-from inf.utils import *
+from .tensors import FinPiParameter, InfPiParameter
+from .utils import *
 
 class MultiStepGClip():
   def __init__(self, gclip, milestones, gamma):

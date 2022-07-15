@@ -1,9 +1,9 @@
 import warnings
-from inf.layers import InfPiInputLinearReLU, InfPiLinearReLU
-from inf.tensors import InfPiParameter
+from .layers import InfPiInputLinearReLU, InfPiLinearReLU
+from .tensors import InfPiParameter
 import torch
-from inf.math import ABnorm
-from inf.layers import *
+from .math import ABnorm
+from .layers import *
 
 
 @torch.no_grad()

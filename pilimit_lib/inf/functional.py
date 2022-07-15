@@ -1,7 +1,7 @@
 import torch
 import torch.functional
 from torch import nn
-from inf.math import *
+from .math import *
 
 class FunBatcher():
     def __init__(self, cuda_batch_size):

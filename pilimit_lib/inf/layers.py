@@ -2,8 +2,8 @@ from numpy.core.fromnumeric import resize
 import torch
 from torch import nn
 import torch.functional as F
-from inf.functional import *
-from inf.tensors import *
+from .functional import *
+from .tensors import *
 import collections
 
 # make sure to clarify different than a regular linear layer
