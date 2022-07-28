@@ -5,23 +5,6 @@ from torch.optim.optimizer import Optimizer
 from .tensors import FinPiParameter, InfPiParameter
 from .utils import *
 
-class MultiStepGClip():
-  def __init__(self, gclip, milestones, gamma):
-    '''
-    A class to keep track of gradient clipping throughout a number of epochs,
-    with milestones to multiply gclip by gamma.
-    '''
-    self.gclip = gclip
-    self.milestones = milestones
-    self.gamma = gamma
-    self.epoch = 0
-
-  def step(self):
-    if self.epoch in self.milestones:
-      self.gclip *= self.gamma
-    self.epoch += 1
-    
-
 class PiSGD(Optimizer):
     def __init__(self, params, lr, momentum=0, dampening=0,
                  weight_decay=0):
@@ -132,32 +115,7 @@ class PiSGD(Optimizer):
 
         return loss
 
-class GClipWrapper():
-  def __init__(self, optimizer, model, gclip, gclip_per_param, gclip_exclude_last_layer=False):
-    self.optimizer = optimizer
-    self.model = model
-    self.gclip = gclip
-    self.gclip_per_param = gclip_per_param
-    self.gclip_exclude_last_layer = gclip_exclude_last_layer
-
-  def step(self):
-    if self.gclip_per_param:
-      for param in self.model.parameters():
-        torch.nn.utils.clip_grad_norm_(param, self.gclip)
-    else:
-      params = dict(self.model.named_parameters())
-      if self.gclip_exclude_last_layer:
-        # last_layer_lr_mult only apply to weights
-        # so only excluding weights here
-        del params[f'_linears.{self.model.L}.weight']
-      # import pdb; pdb.set_trace()
-      torch.nn.utils.clip_grad_norm_(params.values(), self.gclip)
-    self.optimizer.step()
-
-  def zero_grad(self):
-    self.optimizer.zero_grad()
-
-class InfSGD():
+class MetaInfSGD():
   def __init__(self, model, lr, wd=0, momentum=0,
       bias_lr_mult=1, first_layer_lr_mult=1,
       last_layer_lr_mult=1,
@@ -202,6 +160,47 @@ class InfSGD():
   def zero_grad(self):
     self.model.zero_grad()
 
+class GClipWrapper():
+  def __init__(self, optimizer, model, gclip, gclip_per_param, gclip_exclude_last_layer=False):
+    self.optimizer = optimizer
+    self.model = model
+    self.gclip = gclip
+    self.gclip_per_param = gclip_per_param
+    self.gclip_exclude_last_layer = gclip_exclude_last_layer
+
+  def step(self):
+    if self.gclip_per_param:
+      for param in self.model.parameters():
+        torch.nn.utils.clip_grad_norm_(param, self.gclip)
+    else:
+      params = dict(self.model.named_parameters())
+      if self.gclip_exclude_last_layer:
+        # last_layer_lr_mult only apply to weights
+        # so only excluding weights here
+        del params[f'_linears.{self.model.L}.weight']
+      # import pdb; pdb.set_trace()
+      torch.nn.utils.clip_grad_norm_(params.values(), self.gclip)
+    self.optimizer.step()
+
+  def zero_grad(self):
+    self.optimizer.zero_grad()
+
+class MultiStepGClip():
+  def __init__(self, gclip, milestones, gamma):
+    '''
+    A class to keep track of gradient clipping throughout a number of epochs,
+    with milestones to multiply gclip by gamma.
+    '''
+    self.gclip = gclip
+    self.milestones = milestones
+    self.gamma = gamma
+    self.epoch = 0
+
+  def step(self):
+    if self.epoch in self.milestones:
+      self.gclip *= self.gamma
+    self.epoch += 1
+    
 class InfLinearLR():
   def __init__(self, optimizer, totalsteps, lr0):
     self.optimizer = optimizer
@@ -234,7 +233,6 @@ class InfCosineAnnealingLR():
   def getlr(self):
     return self.lr_min + 0.5 * (self.lr_max - self.lr_min
             ) * (1 + math.cos(self.T / self.T_max * math.pi))
-
 
 class InfExpAnnealingLR():
   def __init__(self, optimizer, lnbase, lr_max):

@@ -6,7 +6,9 @@ import torch
 from collections import OrderedDict
 from torchmeta.modules import (MetaModule, MetaConv2d, MetaBatchNorm2d,
                  MetaSequential, MetaLinear)
-from inf.pimlp import FinPiMLP, InfPiMLP, MyLinear
+# from inf.pimlp import FinPiMLP, InfPiMLP, MyLinear
+from examples.networks import FinPiMLPSample
+from examples.meta import MyLinear
 from inf.inf1lp import FinGP1LP
 
 
@@ -246,13 +248,12 @@ class MetaFinReLUGPModel(FinReLUGPModel, MetaModule):
     return self.readout(X,
           params=self.get_subdict(params, f'readout')) / self.width**0.5
   
-
-class MetaFinPiMLP(FinPiMLP, MetaModule):
+class MetaFinPiMLP(FinPiMLPSample, MetaModule):
   def __init__(self, *args, **kw):
     kw['lincls'] = SafeMetaLinear
     no_adapt_readout = kw.pop('no_adapt_readout', False)
     adapt_readout_only = kw.pop('adapt_readout_only', False)
-    FinPiMLP.__init__(self, *args, **kw)
+    FinPiMLPSample.__init__(self, *args, **kw)
     self._children_modules_parameters_cache = dict()
     self.no_adapt_readout = no_adapt_readout
     self.adapt_readout_only = adapt_readout_only

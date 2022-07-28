@@ -22,7 +22,7 @@ from torchmeta.utils.data import BatchMetaDataLoader
 from meta.maml.datasets import get_benchmark_by_name
 from meta.maml.metalearners import ModelAgnosticMetaLearning
 from meta.maml.metalearners import InfMAML
-from inf.optim import GClipWrapper, InfCosineAnnealingLR, InfExpAnnealingLR, InfLinearLR, InfSGD, InfMultiStepLR
+from inf.optim import GClipWrapper, InfCosineAnnealingLR, InfExpAnnealingLR, InfLinearLR, MetaInfSGD, InfMultiStepLR
 
 def main(args, store, exp_id, get_all_outer_loss=False, timeit=False):
     tic = time.time()
@@ -137,7 +137,7 @@ def main(args, store, exp_id, get_all_outer_loss=False, timeit=False):
         print('readout will be fixed at zero before adaptation')
     if args.hidden_size < 0 and not (args.lin_model and not args.orig_model):
         if args.optimizer == 'sgd':
-            meta_optimizer = InfSGD(benchmark.model, lr=args.meta_lr, momentum=args.meta_momentum, bias_lr_mult=args.bias_lr_mult, 
+            meta_optimizer = MetaInfSGD(benchmark.model, lr=args.meta_lr, momentum=args.meta_momentum, bias_lr_mult=args.bias_lr_mult, 
             last_layer_lr_mult=args.last_layer_lr_mult,
             first_layer_lr_mult=args.first_layer_lr_mult,
             gclip=args.grad_clip,

@@ -10,9 +10,10 @@ from torchvision.transforms import ToTensor, Resize, Compose
 from meta.cached_omniglot import Omniglot as Omniglot
 from meta.maml.model import MetaFinReLUGPModel, ModelConvOmniglot, ModelConvMiniImagenet, ModelMLPSinusoid, ModelMLPOmniglot, MetaFinPiMLP, ModelLinMLPOmniglot, ModelInfLin1LPOmniglot, MetaMLPModel, MetaFinGP1LP
 from meta.maml.utils import ToTensor1D
-# from inf.pimlp import InfPiMLP
+
 from inf.inf1lp import InfGP1LP, InfNTK1LP
-from examples.networks import FinPiMLPSample, MetaInfMLP
+from examples.networks import FinPiMLPSample
+from examples.meta import MetaInfMLP
 
 Benchmark = namedtuple('Benchmark', 'meta_train_dataset meta_val_dataset '
                                     'meta_test_dataset model loss_function')
