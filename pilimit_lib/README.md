@@ -11,9 +11,9 @@ For a fast, DIY introduction:
 python cifar10mlp.py --lr 1.0 --gclip-per-param --gclip 0.4 --lr-drop-ratio 0.15 --lr-drop-milestones 40 --scheduler multistep --wd 0.00001 --r 400 --batch-size 8 --epochs 50 --width 0 --cuda --seed 0  --depth 2 --bias-alpha 0.5 --first-layer-lr-mult 0.1 --last-layer-lr-mult 4.0 --first-layer-alpha 1.0 --last-layer-alpha 0.5 --no-apply-lr-mult-to-wd --save-dir ./output/
 ```
 
-After you've verified everything is working, take a look at [this Colab notebook](https://colab.research.google.com/drive/1UJvMwWHJ8kRuek8hUkbIFKbullUWhnuC?usp=sharing) for a quick walkthrough on what the library looks like.
+After you've verified everything is working, take a look at [this Colab notebook](https://colab.research.google.com/drive/1UJvMwWHJ8kRuek8hUkbIFKbullUWhnuC?usp=sharing) for a quick walkthrough on different features of the library.
 
-Our intention is for users to create their own networks using pi-net primitives defined in [layers.py](inf/layers.py), however, the exapmle InfMLP is a fully feature network in its own right which can be used for experiments (as we did for our paper).
+Our intention is for users to create their own networks using pi-net primitives defined in [layers.py](inf/layers.py), however, the example InfMLP is a fully feature network in its own right which can be used for experiments (as we did for our paper).
 
 Next, run your first MAML experiment using:
 
@@ -21,7 +21,7 @@ Next, run your first MAML experiment using:
 python -m meta.train dataset --dataset omniglot --num-ways 5 --num-shots 1 --use-cuda --step-size 0.5 --batch-size 8 --num-workers 2 --num-epochs 2 --output-folder results --meta-lr .1  --grad-clip 0.1 --meta-momentum 0 --num-shots-test 1 --normalize None --hidden-size -1 --bias-alpha 4 --infnet_r 200 --first-layer-alpha 2  --verbose --first-layer-lr-mult 0.2 --dtype float16 --num-batches 1000 --num-test-batches 500 --adapt-readout-only --Gproj-inner --Gproj-outer --last-layer-lr-mult 0 --scheduler cosine --readout-zero-init --depth 1
 ```
 
-**Note: there is currently a bug with maml - the pilimit_lib results do not match pilimit_orig. We are investigating this discrepancy.**
+**Note: there is currently a bug with maml - the pilimit_lib results do not match pilimit_orig. We are investigating this discrepancy. Cifar10 tests are unaffected.**
 
 ## Summary
 
@@ -51,7 +51,7 @@ We have a few different files for running pi-nets, summarized in this table:
 
 | File | Purpose |
 | ------------- |---------  |
-| [cifar10mlp.py](cifar10mlp.py) |  finite or inf-width pi-nets running on CIFAR10 | 
+| [cifar10mlp.py](cifar10mlp.py) | main file for finite or inf-width pi-nets running on CIFAR10 | 
 | [minimal_test_mlp.py](tests/minimal_test_mlp.py)|  extremely minimal dummy test for pi-nets debugging|
 | [test_suite_mlp.py](tests/test_suite_mlp.py) |  compare the inf pi-net to finite-pinet performance on dummy data - results should exactly match for any hparam|
 | [compare_mlp.py](compare_mlp.py) |  compare results of this library with the original pilimit library for accuracy |
