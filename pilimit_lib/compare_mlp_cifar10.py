@@ -1,3 +1,9 @@
+'''
+A file specifically for comparing results between pilimit_lib and pilimit_orig.
+
+Do not use unless you are debugging code in the repo.
+'''
+
 import torch
 from torch import nn
 from inf.layers import *

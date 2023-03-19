@@ -16,3 +16,5 @@ pt
 *.df
 pilimit/
 pilimit2/
+
+imagenet/data/val_data

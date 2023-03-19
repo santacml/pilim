@@ -4,16 +4,19 @@ Some very minimal testing for infinite and finite pi-nets.
 By default, this will run a pi-net on some dummy data.
 
 This is useful for ironing out small bugs, or ensuring changes did not hurt anything.
+
+Run from the root folder with python -m tests.minimal_test_mlp
 '''
 
 import time
 import torch
 from torch import nn
 from torchvision import models
-from ..inf.layers import *
-from ..inf.optim import *
-from ..inf.utils import *
-from ..examples.networks import InfMLP, FinPiMLPSample
+
+from inf.layers import *
+from inf.optim import *
+from inf.utils import *
+from examples.networks import InfMLP, FinPiMLPSample
 
 
 # torch.set_default_dtype(torch.float16)

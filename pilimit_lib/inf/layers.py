@@ -1,7 +1,6 @@
 from numpy.core.fromnumeric import resize
 import torch
 from torch import nn
-import torch.functional as F
 from .functional import *
 from .tensors import *
 import collections

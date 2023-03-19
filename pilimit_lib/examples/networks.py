@@ -1,8 +1,8 @@
 from numpy import diff
 import torch
 from torch import nn
-from ..inf.layers import *
-from ..inf.optim import *
+from inf.layers import *
+from inf.optim import *
 from torchvision import models
 
 class PiNet(torch.nn.Module):
@@ -33,6 +33,7 @@ class InfMLP(PiNet):
             last_bias_alpha=None, 
             layernorm=False, 
             cuda_batch_size=None, 
+            return_hidden=False,
             device="cpu"):
         super(InfMLP, self).__init__()
         '''
@@ -58,6 +59,7 @@ class InfMLP(PiNet):
         self.d_out = d_out
         self.r = r
         self.L = L
+        self.return_hidden = return_hidden
 
         # save as buffers for saving
         self.register_buffer("first_layer_alpha", torch.tensor(first_layer_alpha, dtype=torch.get_default_dtype()))
@@ -70,14 +72,14 @@ class InfMLP(PiNet):
 
         self.layers = nn.ModuleList()
 
-        self.layers.append(InfPiInputLinearReLU(d_in, r, bias_alpha=bias_alpha, device=device))
+        self.layers.append(InfPiInputLinearReLU(d_in, r, bias_alpha=bias_alpha, device=device, return_hidden=return_hidden))
         for n in range(1, L+1):
-            self.layers.append(InfPiLinearReLU(r, device=device, bias_alpha=bias_alpha, layernorm=layernorm, cuda_batch_size=cuda_batch_size))
+            self.layers.append(InfPiLinearReLU(r, device=device, bias_alpha=bias_alpha, layernorm=layernorm, cuda_batch_size=cuda_batch_size, return_hidden=return_hidden))
         
-        self.layers.append(InfPiLinearReLU(r, r_out=d_out, output_layer=True, bias_alpha=last_bias_alpha, device=device, layernorm=layernorm, cuda_batch_size=cuda_batch_size))
+        self.layers.append(InfPiLinearReLU(r, r_out=d_out, output_layer=True, bias_alpha=last_bias_alpha, device=device, layernorm=layernorm, cuda_batch_size=cuda_batch_size, return_hidden=return_hidden))
 
         
-    def forward(self, x):
+    def forward(self, x, save_kernel_output=False):
         '''
         Forward propogate through the infnet with a given x.
         
@@ -85,13 +87,34 @@ class InfMLP(PiNet):
             - we don't need to define a backward, as torch will do that for us
             - layer alphas are accounted for automatically with autograd
         '''
-        for n in range(0, self.L+2):
-            x = self.layers[n](x)
-            if n == 0: 
-                x *= self.first_layer_alpha
-            if n == self.L+1: 
-                x *= self.last_layer_alpha
-        return x
+        if self.return_hidden:
+            for n in range(0, self.L+2):
+                x, gbar_in, q_in, s_in  = self.layers[n](x)
+
+                if n == self.L+1 and save_kernel_output:
+                    kernel_g = x.clone()
+                    kernel_gbar = kernel_g / kernel_g.norm(dim=1, keepdim=True)
+
+                if n == 0: 
+                    x *= self.first_layer_alpha
+                if n == self.L+1: 
+                    x *= self.last_layer_alpha
+            
+            if save_kernel_output:
+                return x, kernel_g, kernel_gbar
+            else:
+                return x
+
+        else:
+            assert not save_kernel_output, "Cannot save kernel outputs without returning hidden states."
+
+            for n in range(0, self.L+2):
+                x = self.layers[n](x)
+                if n == 0: 
+                    x *= self.first_layer_alpha
+                if n == self.L+1: 
+                    x *= self.last_layer_alpha
+            return x
         
 class FinPiMLPSample(torch.nn.Module):
     def __init__(self, infnet, n):
@@ -126,7 +149,7 @@ class FinPiMLPSample(torch.nn.Module):
 
         self.layers.append(infnet.layers[self.L+1].sample(self.n, self.d_out, self.layers[self.L].omega))
 
-    def forward(self, x):
+    def forward(self, x, save_kernel_output=False):
         '''
         Forward propogate through the finite network with a given x.
         '''
@@ -137,7 +160,14 @@ class FinPiMLPSample(torch.nn.Module):
             if self.layernorm:
                 x = divbystd(x)
             x = nn.ReLU()(x)
+
+        if save_kernel_output: # for imagenet transfer kernel creation
+            kernel_output = x.clone()
+        
         x = self.layers[self.L+1](x)
         x *= self.last_layer_alpha
+
+        if save_kernel_output:
+            return x, kernel_output
 
         return x

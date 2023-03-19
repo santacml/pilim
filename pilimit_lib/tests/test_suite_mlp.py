@@ -6,6 +6,7 @@ Because the data is so simple, the curves should exactly match.
 These tests are a bit hastily written and could be cleaned up,
 but they work. Feel free to test different hyperparams below.
 
+Run from the root folder with python -m tests.test_suite_mlp
 '''
 
 from examples.networks import *

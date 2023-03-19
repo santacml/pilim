@@ -140,7 +140,7 @@ Test with: epoch 32 reg 1e-4
 ## Imagenet FinPiNet r 200
 
 ```
-python -m imagenet.transfer_imagenet  --save-dir=./output/ --save-model --cuda --width=2048 --r 200 --lr=0.028284 --batch-size=16 --gclip=0.4  --epochs=40 --human --wd=0.000177 --bias-alpha=0.353553  --first-layer-lr-mult= 1.524828 --last-layer-lr-mult=1.0 --gclip-per-param 
+python -m imagenet.transfer_imagenet  --save-dir=./output/ --save-model --cuda --width=2048 --r 200 --lr=0.028284 --batch-size=16 --gclip=0.4  --epochs=40 --human --wd=0.000177 --bias-alpha=0.353553  --first-layer-lr-mult=1.524828 --last-layer-lr-mult=1.0 --gclip-per-param 
 ```
 
 Test with: epoch 27, reg 1e-4

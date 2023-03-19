@@ -254,6 +254,7 @@ def main(arglst=None):
             break
         n = batch_idx + 1
         data, target = data.to(device).type(torch.get_default_dtype()), target.to(device)
+        data = data.reshape(data.shape[0], -1)
 
         # 0 grad if we reach accum steps 
         if batch_idx % args.accum_steps == 0:
@@ -337,6 +338,7 @@ def main(arglst=None):
       with torch.no_grad():
           for data, target in test_loader:
               data, target = data.to(device).type(torch.get_default_dtype()), target.to(device)
+              data = data.reshape(data.shape[0], -1)
 
               output = model(data)
               test_loss += get_loss(output, target, reduction='sum').item()  # sum up batch loss
@@ -422,7 +424,8 @@ def main(arglst=None):
 
     mynet = FinPiMLPSample(infnet, args.width)
     
-    mynet = mynet.cuda()
+    if args.cuda:
+      mynet = mynet.cuda()
     if args.gaussian_init:
       for _, lin in mynet.layers.items():
         lin.weight.data[:].normal_()
