@@ -12,7 +12,7 @@ from inf.optim import *
 from torchvision import models
 from torchvision import datasets, transforms
 import torch.utils.data as data_utils
-from examples.networks import InfMLP
+from networks.networks import InfMLP
 from inf.utils import *
 import time
 import matplotlib.pyplot as plt

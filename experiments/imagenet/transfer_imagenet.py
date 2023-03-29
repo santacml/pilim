@@ -12,7 +12,7 @@ import sys, os
 # from utils.kernels import *
 # from inf.pimlp import *
 # from inf.optim import InfSGD, InfMultiStepLR, MultiStepGClip
-from imagenet.utils import ImageNet32, remove_extra_cls_imagenet, remove_extra_cls_cifar10, to_one_hot
+from examples.imagenet.utils import ImageNet32, remove_extra_cls_imagenet, remove_extra_cls_cifar10, to_one_hot
 import numpy as np
 import argparse
 import torch.nn.functional as F
@@ -24,11 +24,11 @@ import psutil
 import torch
 import itertools
 
-from inf.layers import *
-from inf.optim import *
-from inf.utils import *
-from inf.math import J1
-from examples.networks import FinPiMLPSample, InfMLP
+from pilimit_lib.inf.layers import *
+from pilimit_lib.inf.optim import *
+from pilimit_lib.inf.utils import *
+from pilimit_lib.inf.math import J1
+from examples.networks.networks import FinPiMLPSample, InfMLP
 
 def get_feature_kernel_and_labels(net, dataloader, num_cls=10, normalize=False):
   net.eval()
@@ -150,7 +150,7 @@ def main(arglst=None):
                       help='verbose')
 
   # Custom arguments
-  parser.add_argument('--imagenet-data', type=str, default=r'.\imagenet\data',
+  parser.add_argument('--imagenet-data', type=str, default=r'.\examples\imagenet\data',
                       help='location of the imagenet data corpus')
   parser.add_argument('--cifar-data', type=str, default='./dataset',
                       help='location of the cifar data corpus')

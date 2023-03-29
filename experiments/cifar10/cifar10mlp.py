@@ -25,10 +25,10 @@ import pandas as pd
 import time
 import os
 import torch
-from inf.layers import *
-from inf.optim import *
-from inf.utils import *
-from examples.networks import FinPiMLPSample, InfMLP
+from pilimit_lib.inf.layers import *
+from pilimit_lib.inf.optim import *
+from pilimit_lib.inf.utils import *
+from examples.networks.networks import FinPiMLPSample, InfMLP
 
 def main(arglst=None):
   parser = argparse.ArgumentParser(description='PyTorch training models',
@@ -37,7 +37,7 @@ def main(arglst=None):
                       help='verbose')
 
   # Custom arguments
-  parser.add_argument('--data', type=str, default='./dataset',
+  parser.add_argument('--data', type=str, default='./examples/cifar10/dataset',
                       help='location of the data corpus')
   parser.add_argument('--save-dir', type=str, default='',
                       help='directory to save results and checkpoints')

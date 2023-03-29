@@ -45,11 +45,8 @@ conda install tensorboardX pytables
 Here are the things we are planning to add to the repo, in order of priority:
 
 High priority:
-- Colab notebook for easy reproducibility
 - double-check command rerun for accuracy / upload saved .pkl version of each best model
-- double-check pilimit_lib tests still work after refactor
 - pilimit_lib maml implementation
-- nicer dependency / conda env creation file
 
 
 Post release:

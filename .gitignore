@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+*.gz
+experiments/cifar10/data/*
+experiments/imagenet/data/val_data
+
 # C extensions
 *.so
 
