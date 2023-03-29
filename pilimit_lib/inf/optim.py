@@ -98,14 +98,26 @@ class PiSGD(Optimizer):
                     momentum_buffer_list.append(state['momentum_buffer'])
 
 
-            optim_F.sgd(params_with_grad,
-                  d_p_list,
-                  momentum_buffer_list,
-                  weight_decay=weight_decay,
-                  momentum=momentum,
-                  lr=lr,
-                  dampening=dampening,
-                  nesterov=False)
+            try:
+              optim_F.sgd(params_with_grad,
+                    d_p_list,
+                    momentum_buffer_list,
+                    weight_decay=weight_decay,
+                    momentum=momentum,
+                    lr=lr,
+                    dampening=dampening,
+                    nesterov=False)
+            except:
+              optim_F.sgd(params_with_grad,
+                    d_p_list,
+                    momentum_buffer_list,
+                    weight_decay=weight_decay,
+                    momentum=momentum,
+                    lr=lr,
+                    dampening=dampening,
+                    nesterov=False,
+                    maximize=False)  # torch version compatibility
+               
 
             # update momentum_buffers in state
             for p, momentum_buffer in zip(params_with_grad, momentum_buffer_list):

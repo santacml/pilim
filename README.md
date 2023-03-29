@@ -29,7 +29,7 @@ For a fast, DIY introduction:
 python -m experiments.cifar10.cifar10mlp --lr 1.0 --gclip-per-param --gclip 0.4 --lr-drop-ratio 0.15 --lr-drop-milestones 40 --scheduler multistep --wd 0.00001 --r 400 --batch-size 8 --epochs 50 --width 0 --cuda --seed 0  --depth 2 --bias-alpha 0.5 --first-layer-lr-mult 0.1 --last-layer-lr-mult 4.0 --first-layer-alpha 1.0 --last-layer-alpha 0.5 --no-apply-lr-mult-to-wd --save-dir ./output/
 ```
 
-Our intention is for users to create their own networks using pi-net primitives defined in [layers.py](pilimit_lib/inf/layers.py), however, the example InfMLP is a fully feature network in its own right which can be used for experiments (as we did for our paper).
+Our intention is for users to create their own networks using pi-net primitives defined in [layers.py](pilimit_lib/inf/layers.py), however, the example InfMLP is a fully featured network in its own right which can be used for experiments (as we did for our paper).
 
 
 # Conda Environment
