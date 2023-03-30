@@ -12,7 +12,7 @@ import sys, os
 # from utils.kernels import *
 # from inf.pimlp import *
 # from inf.optim import InfSGD, InfMultiStepLR, MultiStepGClip
-from examples.imagenet.utils import ImageNet32, remove_extra_cls_imagenet, remove_extra_cls_cifar10, to_one_hot
+from experiments.imagenet.utils import ImageNet32, remove_extra_cls_imagenet, remove_extra_cls_cifar10, to_one_hot
 import numpy as np
 import argparse
 import torch.nn.functional as F
@@ -28,7 +28,7 @@ from pilimit_lib.inf.layers import *
 from pilimit_lib.inf.optim import *
 from pilimit_lib.inf.utils import *
 from pilimit_lib.inf.math import J1
-from examples.networks.networks import FinPiMLPSample, InfMLP
+from experiments.networks.networks import FinPiMLPSample, InfMLP
 
 def get_feature_kernel_and_labels(net, dataloader, num_cls=10, normalize=False):
   net.eval()

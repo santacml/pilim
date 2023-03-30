@@ -107,7 +107,7 @@ class PiSGD(Optimizer):
                     lr=lr,
                     dampening=dampening,
                     nesterov=False)
-            except:
+            except:  # torch version compatibility - this is a bit gross
               optim_F.sgd(params_with_grad,
                     d_p_list,
                     momentum_buffer_list,
@@ -116,7 +116,7 @@ class PiSGD(Optimizer):
                     lr=lr,
                     dampening=dampening,
                     nesterov=False,
-                    maximize=False)  # torch version compatibility
+                    maximize=False)
                
 
             # update momentum_buffers in state

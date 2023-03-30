@@ -115,7 +115,44 @@ class InfMLP(PiNet):
                 if n == self.L+1: 
                     x *= self.last_layer_alpha
             return x
-        
+    
+    @torch.no_grad()
+    def load_pilimit_orig_net(self, orig_net):
+        assert len(self.layers) == len(orig_net["As"].keys())
+        assert self.r == orig_net["As"][1].shape[1]
+
+        self.first_layer_alpha = torch.tensor(orig_net["first_layer_alpha"])
+        self.last_layer_alpha = torch.tensor(orig_net["last_layer_alpha"])
+        self.layernorm = orig_net["layernorm"]
+        self.bias_alpha = torch.tensor(orig_net["bias_alpha"])
+        self.last_bias_alpha = torch.tensor(orig_net["last_bias_alpha"])
+
+        self.layers[0].A[:] = orig_net["As"][1]
+        if self.bias_alpha != 0:
+            self.layers[0].bias[:] = orig_net["biases"][1]
+        self.layers[0].bias_alpha = self.bias_alpha
+        self.layers[0].layernorm = self.layernorm
+
+
+        for l in range(1, self.L+2):
+            self.layers[l].A.resize_(orig_net["As"][l+1].size())
+            self.layers[l].A[:] = orig_net["As"][l+1]
+
+            self.layers[l].Amult.resize_(orig_net["Amult"][l+1].size())
+            self.layers[l].Amult[:] = orig_net["Amult"][l+1]
+
+            self.layers[l].B.resize_(orig_net["Bs"][l+1].size())
+            self.layers[l].B[:] = orig_net["Bs"][l+1]
+
+            if self.bias_alpha != 0:
+                self.layers[l].bias[:] = orig_net["biases"][l+1]
+            self.layers[l].bias_alpha = self.bias_alpha
+            self.layers[l].layernorm = self.layernorm
+
+        print("Finished loading from converted pilimit_orig net.")
+
+
+
 class FinPiMLPSample(torch.nn.Module):
     def __init__(self, infnet, n):
         '''

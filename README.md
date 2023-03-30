@@ -11,6 +11,8 @@ After writing the paper, we found the code in pilimit_orig difficult for re-use.
 
 It's worth noting pilimit_lib does *not* reproduce the main paper results when using the same hyperparameters due to various floating point and rounding issues, but the results are essentially identical.
 
+We provide saved versions of the [imagenet network here](https://1drv.ms/u/s!Aqm-bcw66kwDnSfBsbwKG05CxiRK?e=VUahyQ) and the [cifar10 network here](https://1drv.ms/u/s!Aqm-bcw66kwDnSYUPdFw-km20Hta?e=Wu3wd3). Please note these files are quite large (14gb and 9gb), and so require a large gpu/ram to run effectively.
+
 # Fast Introduction
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1dS3raZBv87yB2MNXyyAvvvcEP9s2KsRt?usp=sharing)
@@ -74,12 +76,14 @@ We have a few different files for running pi-nets, summarized in this table:
 
 Please note that for all experiments, Pi-Nets inherently increase in size for each optimization step, increasing both memory and runtime. To run for a significant number of steps, it will be necessary to run the networks on a CUDA-enabled environment and using float16. It is useful to test things with CPU, and in these cases, note that it is necessary to use float32 for compatibility.
 
+In order to run experiments, create a downloadable library, and also have a copy of the old code, experiments have been placed in their own folder at the root level of the repo. It is necessary to run the files using the commands below (e.g. "python -m experiments.imagenet.transfer_imagenet ...).
+
 
 ## Imagenet
 
 For Imagenet experiments, we use the 32x32 downsampled data that is available for download here: https://image-net.org/download-images.php
 
-By default, the script expects the data to be under imagenet/data, but feel free to place where you'd like (and adjust the command accordingly).
+By default, the script expects the data to be under experiments/imagenet/data, but feel free to place where you'd like (and adjust the command accordingly).
 
 ```
 python -m experiments.imagenet.transfer_imagenet  --save-dir=./output/ --save-model --cuda --r 200 --lr=0.01 --batch-size=16 --gclip=0  --epochs=40 --human --wd=0.0001 --bias-alpha=0.5 --first-layer-lr-mult=1.0 --last-layer-lr-mult=1.0 --gclip-per-param 
@@ -102,13 +106,19 @@ python -m experiments.meta.train dataset --dataset omniglot --num-ways 5 --num-s
 
 **Note: there is currently a bug with maml - the pilimit_lib results do not match pilimit_orig. We are investigating this discrepancy. Cifar10 tests are unaffected.**
 
+# Converting from pilimit_orig to pilimit_lib
+
+If one wishes to use a net trained in pilimit_orig in the library pilimit_lib, here are the steps:
+
+1. Convert the network using the script [convert_net.py](pilimit_orig/convert_net.py)
+2. Load the network in the new library with the `load_pilimit_orig_net` function in our example [networks.py](experiments/networks/networks.py)
+
 # Roadmap
 
 Here are the things we are planning to add to the repo, in order of priority:
 
 High priority:
-- double-check command rerun for accuracy / upload saved .pkl version of each best model
-- pilimit_lib maml implementation
+- pilimit_lib maml implementation fix
 
 
 Post release:
