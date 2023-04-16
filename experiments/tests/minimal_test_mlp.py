@@ -16,7 +16,7 @@ from torchvision import models
 from inf.layers import *
 from inf.optim import *
 from inf.utils import *
-from examples.networks import InfMLP, FinPiMLPSample
+from networks.networks import InfMLP, FinPiMLPSample
 
 
 # torch.set_default_dtype(torch.float16)

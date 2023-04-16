@@ -7,7 +7,7 @@ from collections import OrderedDict
 from torchmeta.utils import gradient_update_parameters
 from meta.maml.utils import tensors_to_device, compute_accuracy
 from meta.maml.metalearners.maml import MAML
-from examples.meta import MetaInfMLPOps
+from networks.meta import MetaInfMLPOps
 
 __all__ = ['InfMAML']
 

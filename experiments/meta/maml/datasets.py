@@ -12,8 +12,8 @@ from meta.maml.model import MetaFinReLUGPModel, ModelConvOmniglot, ModelConvMini
 from meta.maml.utils import ToTensor1D
 
 from inf.inf1lp import InfGP1LP, InfNTK1LP
-from examples.networks import FinPiMLPSample
-from examples.meta import MetaInfMLP
+from networks.networks import FinPiMLPSample
+from networks.meta import MetaInfMLP
 
 Benchmark = namedtuple('Benchmark', 'meta_train_dataset meta_val_dataset '
                                     'meta_test_dataset model loss_function')

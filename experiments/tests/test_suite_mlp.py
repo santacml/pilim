@@ -9,7 +9,7 @@ but they work. Feel free to test different hyperparams below.
 Run from the root folder with python -m tests.test_suite_mlp
 '''
 
-from examples.networks import *
+from networks.networks import *
 from inf.optim import *
 from inf.utils import *
 from itertools import product

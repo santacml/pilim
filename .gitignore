@@ -6,6 +6,9 @@ __pycache__/
 *.gz
 experiments/cifar10/data/*
 experiments/imagenet/data/val_data
+amlt
+pilimit_orig/output
+dataset
 
 # C extensions
 *.so

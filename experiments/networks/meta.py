@@ -4,7 +4,7 @@ from torch import nn
 from inf.layers import *
 from inf.optim import *
 from torchvision import models
-from examples.networks import *
+from networks.networks import *
 
 
 

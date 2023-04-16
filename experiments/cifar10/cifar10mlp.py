@@ -28,7 +28,7 @@ import torch
 from pilimit_lib.inf.layers import *
 from pilimit_lib.inf.optim import *
 from pilimit_lib.inf.utils import *
-from examples.networks.networks import FinPiMLPSample, InfMLP
+from experiments.networks.networks import FinPiMLPSample, InfMLP
 
 def main(arglst=None):
   parser = argparse.ArgumentParser(description='PyTorch training models',

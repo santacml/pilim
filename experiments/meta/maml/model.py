@@ -7,8 +7,8 @@ from collections import OrderedDict
 from torchmeta.modules import (MetaModule, MetaConv2d, MetaBatchNorm2d,
                  MetaSequential, MetaLinear)
 # from inf.pimlp import FinPiMLP, InfPiMLP, MyLinear
-from examples.networks import FinPiMLPSample
-from examples.meta import MyLinear
+from networks.networks import FinPiMLPSample
+from networks.meta import MyLinear
 from inf.inf1lp import FinGP1LP
 
 

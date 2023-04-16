@@ -183,7 +183,7 @@ def inf_linear_forward_return_q(
 
     if gbar is None:
         gbar = g / s
-    
+        
     # apply B
     q = gbar @ B.T
 

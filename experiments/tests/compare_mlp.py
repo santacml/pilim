@@ -10,7 +10,7 @@ from inf.layers import *
 from inf.optim import *
 torch.set_default_dtype(torch.float16)
 from torchvision import models
-from examples.networks import InfMLP
+from networks.networks import InfMLP
 from inf.utils import *
 import time
 import matplotlib.pyplot as plt
