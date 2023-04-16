@@ -65,6 +65,7 @@ We have a few different files for running pi-nets, summarized in this table:
 | File | Purpose |
 | ------------- |---------  |
 | [cifar10mlp.py](experiments/cifar10/cifar10mlp.py) | main file for finite or inf-width pi-nets running on CIFAR10 | 
+| [cifar10test.py](experiments/cifar10/cifar10test.py) | quickly test kernels, finite, or inf-width pi-nets on CIFAR10 without the training code | 
 | [transfer_imagenet.py](experiments/imagenet/transfer_imagenet.py) | main file for running transfer learning experiments from imagenet -> CIFAR10 | 
 | [minimal_test_mlp.py](experiments/tests/minimal_test_mlp.py)|  extremely minimal dummy test for pi-nets debugging|
 | [test_suite_mlp.py](experiments/tests/test_suite_mlp.py) |  compare the inf pi-net to finite-pinet performance on dummy data - results should exactly match for any hparam|
@@ -118,7 +119,10 @@ If one wishes to use a net trained in pilimit_orig in the library pilimit_lib, h
 Here are the things we are planning to add to the repo, in order of priority:
 
 High priority:
+- implement loading/testing imagenet and cifar10 saved files
+- fix minimal_test for both cpu and gpu
 - pilimit_lib maml implementation fix
+- gradient accumulation?
 
 
 Post release:

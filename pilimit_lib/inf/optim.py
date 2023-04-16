@@ -72,6 +72,13 @@ class PiSGD(Optimizer):
 
                     # p.add_(-lr*p.grad.to(torch.get_default_dtype()) )
 
+                    
+                    state = self.state[p]
+                    if 'momentum_buffer' not in state:
+                        momentum_buffer_list.append(None)
+                    else:
+                        momentum_buffer_list.append(state['momentum_buffer'])
+
 
                 elif isinstance(p, InfPiParameter) and p.optim_mode == "project" and p.pi.grad is not None:
                     # no momentum
@@ -91,11 +98,6 @@ class PiSGD(Optimizer):
                     p.cat_grad(grad, alpha=-lr)
                 
 
-                state = self.state[p]
-                if 'momentum_buffer' not in state:
-                    momentum_buffer_list.append(None)
-                else:
-                    momentum_buffer_list.append(state['momentum_buffer'])
 
 
             try:

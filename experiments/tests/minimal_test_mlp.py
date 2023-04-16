@@ -13,19 +13,19 @@ import torch
 from torch import nn
 from torchvision import models
 
-from inf.layers import *
-from inf.optim import *
-from inf.utils import *
-from networks.networks import InfMLP, FinPiMLPSample
+from pilimit_lib.inf.layers import *
+from pilimit_lib.inf.optim import *
+from pilimit_lib.inf.utils import *
+from experiments.networks.networks import InfMLP, FinPiMLPSample
 
 
 # torch.set_default_dtype(torch.float16)
 torch.manual_seed(3133)
 np.random.seed(3331)
-# device="cuda"
-device = "cpu"
+device="cuda"
+# device = "cpu"
 
-data = torch.linspace(-np.pi, np.pi, device=device).reshape(-1, 1)
+data = torch.linspace(-np.pi, np.pi, 100, device=device).reshape(-1, 1)
 labels = torch.sin(data) #.reshape(-1)
 data = torch.cat([data, torch.ones_like(data, device=device)], dim=1)
 
