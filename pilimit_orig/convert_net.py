@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
       dout = num_cls
       #
-      infnet = InfPiMLP(d=din, dout=dout, L=2, r=200,
+      orig_net = InfPiMLP(d=din, dout=dout, L=2, r=200,
                         first_layer_alpha=1,
                         last_layer_alpha=1,
                         initbuffersize=1000, device="cuda",
@@ -44,7 +44,7 @@ if __name__ == "__main__":
                         last_bias_alpha=1,
                         _last_layer_grad_no_alpha=True)
 
-      net.load(orig_net_path)
+      orig_net.load(orig_net_path)
 
 
     print(orig_net)
