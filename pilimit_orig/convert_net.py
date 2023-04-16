@@ -24,7 +24,27 @@ if __name__ == "__main__":
         print("Converted network exists, exiting...")
         0/0
 
-    orig_net = torch.load(orig_net_path,  map_location=torch.device('cpu'))
+    try:
+        orig_net = torch.load(orig_net_path,  map_location=torch.device('cpu'))
+    except:
+      print("using alternate loading method")
+      din = 32**2 * 3
+
+      num_cls = 10
+
+      dout = num_cls
+      #
+      infnet = InfPiMLP(d=din, dout=dout, L=2, r=200,
+                        first_layer_alpha=1,
+                        last_layer_alpha=1,
+                        initbuffersize=1000, device="cuda",
+                        # bias_alpha=0.5,
+                        # last_bias_alpha=0.5,
+                        bias_alpha=1,
+                        last_bias_alpha=1,
+                        _last_layer_grad_no_alpha=True)
+
+      net.load(orig_net_path)
 
 
     print(orig_net)
