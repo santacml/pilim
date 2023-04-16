@@ -276,7 +276,7 @@ def main(arglst=None):
   test_acc = -1
   ker_acc = -1
 
-  if not args.gp and not args.ntk:
+  if not args.test_kernel and not args.gp and not args.ntk:
     # rank of Z space
     din = 32**2 * 3
 

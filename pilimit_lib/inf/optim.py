@@ -65,14 +65,6 @@ class PiSGD(Optimizer):
                     params_with_grad.append(p)
                     d_p_list.append(p.grad)
 
-
-                    # this is handled below?
-                    # if weight_decay > 0:
-                    #     p *= 1 - lr * weight_decay
-
-                    # p.add_(-lr*p.grad.to(torch.get_default_dtype()) )
-
-                    
                     state = self.state[p]
                     if 'momentum_buffer' not in state:
                         momentum_buffer_list.append(None)
@@ -81,14 +73,6 @@ class PiSGD(Optimizer):
 
 
                 elif isinstance(p, InfPiParameter) and p.optim_mode == "project" and p.pi.grad is not None:
-                    # no momentum
-
-                    # if p.apply_lr:
-                    #     p *= 1 - lr * weight_decay
-                    #     p.pi.grad *= -lr
-
-                    # p.add_(p.pi.grad, alpha=1)
-                    
                     # apply weight decay if needed (for Amult)
                     if p.apply_lr:
                         p *= 1 - lr * weight_decay

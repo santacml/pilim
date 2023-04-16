@@ -11,8 +11,6 @@ After writing the paper, we found the code in pilimit_orig difficult for re-use.
 
 It's worth noting pilimit_lib does *not* reproduce the main paper results when using the same hyperparameters due to various floating point and rounding issues, but the results are essentially identical.
 
-We provide saved versions of the [imagenet network here](https://1drv.ms/u/s!Aqm-bcw66kwDnSfBsbwKG05CxiRK?e=VUahyQ) and the [cifar10 network here](https://1drv.ms/u/s!Aqm-bcw66kwDnSYUPdFw-km20Hta?e=Wu3wd3). Please note these files are quite large (14gb and 9gb), and so require a large gpu/ram to run effectively.
-
 # Fast Introduction
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1dS3raZBv87yB2MNXyyAvvvcEP9s2KsRt?usp=sharing)
@@ -79,6 +77,25 @@ Please note that for all experiments, Pi-Nets inherently increase in size for ea
 
 In order to run experiments, create a downloadable library, and also have a copy of the old code, experiments have been placed in their own folder at the root level of the repo. It is necessary to run the files using the commands below (e.g. "python -m experiments.imagenet.transfer_imagenet ...).
 
+
+# Running Saved Checkpoints
+
+We provide saved versions of the [imagenet network here](https://1drv.ms/u/s!Aqm-bcw66kwDnSfBsbwKG05CxiRK?e=VUahyQ) and the [cifar10 network here](https://1drv.ms/u/s!Aqm-bcw66kwDnSYUPdFw-km20Hta?e=Wu3wd3). Please note these files are quite large (14gb and 9gb), and so require a large gpu/ram to run effectively.
+
+The CIFAR10 checkpoint was created using pilimit_lib, and as such it can be tested with this command:
+
+```
+python -m experiments.cifar10.cifar10test --load-model-path PATH_TO_FILE --r 400 --cuda
+```
+
+The Imagenet checkpoint was created using pilimit_orig, and therefore needs to be tested with this command
+```
+python -m experiments.cifar10.cifar10test --load-model-path PATH_TO_FILE --r 200 --load-from-pilimit-orig --cuda --test-kernel
+```
+
+## CIFAR10
+
+Cifar10 training can be done with the command above.
 
 ## Imagenet
 

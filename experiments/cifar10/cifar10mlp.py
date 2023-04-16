@@ -273,10 +273,12 @@ def main(arglst=None):
         
         start = time.time()
         loss.backward()
+        stage_grad(model)
         backward_time = backward_time * (n-1)/n + (time.time() - start) / n
 
         if batch_idx % args.accum_steps == 0:
           start = time.time()
+          unstage_grad(model)
           if gclip_sch and gclip_sch.gclip > 0:
               store_pi_grad_norm_(model.modules())
               if args.gclip_per_param:
