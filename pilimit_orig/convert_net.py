@@ -1,11 +1,21 @@
 from inf.pimlp import *
 import os
 import torch
+import inf.dynamicarray as dynamicarray
+from inf.dynamicarray import DynArr, CycArr
 
+# command for making a small network for debugging...
 # python -m cifar10.cifar10infmlp --lr 1.0 --gclip-per-param --gclip 0.4 --lr-drop-ratio 0.15 --lr-drop-milestones 40 --scheduler multistep --wd 0.00001 --r 5 --batch-size 8 --epochs 1 --width 0  --seed 0  --depth 2 --bias-alpha 0.5 --first-layer-lr-mult 0.1 --last-layer-lr-mult 4.0 --first-layer-alpha 1.0 --last-layer-alpha 0.5 --no-apply-lr-mult-to-wd --save-dir ./output/ --float --human --train-subset-size=100 --save-model
 
+import sys
+
+sys.modules['dynamicarray'] = dynamicarray
+
+
+
 if __name__ == "__main__":
-    orig_net_path = r"C:\repos\pilim\pilimit_orig\output\checkpoints\epoch1.th"
+    # orig_net_path = r"C:\Users\misantac\Downloads\pilimit_orig_imagenet_r200.th"
+    orig_net_path = r"./checkpoint.th"
 
     net_dir = os.path.dirname(orig_net_path)
     net_name = os.path.basename(orig_net_path)
@@ -14,7 +24,7 @@ if __name__ == "__main__":
         print("Converted network exists, exiting...")
         0/0
 
-    orig_net = torch.load(orig_net_path)
+    orig_net = torch.load(orig_net_path,  map_location=torch.device('cpu'))
 
 
     print(orig_net)

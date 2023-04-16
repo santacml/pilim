@@ -135,20 +135,13 @@ If one wishes to use a net trained in pilimit_orig in the library pilimit_lib, h
 
 Here are the things we are planning to add to the repo, in order of priority:
 
-High priority:
-- implement loading/testing imagenet and cifar10 saved files
-- fix minimal_test for both cpu and gpu
-- pilimit_lib maml implementation fix
-- gradient accumulation?
-
 
 Post release:
+- pilimit_lib maml implementation fix
 - Create pip package for pilimit_lib
 - pilimit_lib extensions / refactors
   - refactor finite net to use activation inside layer?
   - Fix compare_mlp and _cifar10 (they are currently broken due to dependencies)
-  - Separate layernorm layer in pilimit_lib
-  - Multiple activation functions
   - refactor gradient clipping
   - refactor storing pi in inf pi parameters, proj in fin pi params?
   - better cifar10/test_suite documentation
